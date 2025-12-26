@@ -198,7 +198,7 @@ git push origin main --tags
 
 ## 📝 Checklist
 
-- [ ] `pnpm install` thành công
+- [ ] `pnpm install` thành cônggit commit -m "feat: initial release v1.0.0"
 - [ ] `pnpm build` không có lỗi
 - [ ] `npm login` đã đăng nhập
 - [ ] Tạo npm organization `@meet-layout-grid`
