@@ -1,0 +1,6 @@
+{
+    "buildCommand": "cd ../.. && pnpm build && cd examples/vue-demo && pnpm build",
+    "installCommand": "cd ../.. && pnpm install --no-frozen-lockfile",
+    "framework": "vite",
+    "outputDirectory": "dist"
+}
