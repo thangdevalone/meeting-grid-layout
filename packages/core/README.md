@@ -1,17 +1,17 @@
-# @meet-layout-grid/core
+# @thangdevalone/meet-layout-grid-core
 
 Core grid calculation logic for meet-layout-grid library. Zero dependencies, framework-agnostic.
 
 ## Installation
 
 ```bash
-npm install @meet-layout-grid/core
+npm install @thangdevalone/meet-layout-grid-core
 ```
 
 ## Usage
 
 ```typescript
-import { createMeetGrid, createGrid } from '@meet-layout-grid/core'
+import { createMeetGrid, createGrid } from '@thangdevalone/meet-layout-grid-core'
 
 // Basic grid
 const grid = createGrid({

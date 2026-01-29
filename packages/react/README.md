@@ -1,17 +1,17 @@
-# @meet-layout-grid/react
+# @thangdevalone/meet-layout-grid-react
 
 React integration for meet-layout-grid with Motion animations.
 
 ## Installation
 
 ```bash
-npm install @meet-layout-grid/react
+npm install @thangdevalone/meet-layout-grid-react
 ```
 
 ## Quick Start
 
 ```tsx
-import { GridContainer, GridItem } from '@meet-layout-grid/react'
+import { GridContainer, GridItem } from '@thangdevalone/meet-layout-grid-react'
 
 function MeetingGrid({ participants }) {
   return (

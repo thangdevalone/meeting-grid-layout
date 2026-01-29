@@ -1,18 +1,18 @@
-# @meet-layout-grid/vue
+# @thangdevalone/meet-layout-grid-vue
 
 Vue 3 integration for meet-layout-grid with Motion animations.
 
 ## Installation
 
 ```bash
-npm install @meet-layout-grid/vue
+npm install @thangdevalone/meet-layout-grid-vue
 ```
 
 ## Quick Start
 
 ```vue
 <script setup>
-import { GridContainer, GridItem } from '@meet-layout-grid/vue'
+import { GridContainer, GridItem } from '@thangdevalone/meet-layout-grid-vue'
 import { ref } from 'vue'
 
 const participants = ref([
@@ -81,7 +81,7 @@ Animated grid item with motion-v animations.
 ### `useGridDimensions(ref)`
 
 ```ts
-import { useGridDimensions } from '@meet-layout-grid/vue'
+import { useGridDimensions } from '@thangdevalone/meet-layout-grid-vue'
 import { ref } from 'vue'
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -92,7 +92,7 @@ const dimensions = useGridDimensions(containerRef)
 ### `useMeetGrid(options)`
 
 ```ts
-import { useMeetGrid } from '@meet-layout-grid/vue'
+import { useMeetGrid } from '@thangdevalone/meet-layout-grid-vue'
 import { computed } from 'vue'
 
 const options = computed(() => ({
@@ -109,7 +109,7 @@ const grid = useMeetGrid(options)
 ### `useGridItemPosition(grid, index)`
 
 ```ts
-import { useGridItemPosition } from '@meet-layout-grid/vue'
+import { useGridItemPosition } from '@thangdevalone/meet-layout-grid-vue'
 
 const { position, dimensions, isMain, isHidden } = useGridItemPosition(grid, 0)
 ```
