@@ -1,6 +1,6 @@
-MIT License
+MIT License with Attribution Requirement
 
-Copyright (c) 2024 ThangDevAlone
+Copyright (c) 2024-2026 ThangDevAlone
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -9,8 +9,21 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. The above copyright notice and this permission notice shall be included in 
+   all copies or substantial portions of the Software.
+
+2. ATTRIBUTION REQUIREMENT: Any project using this Software must include 
+   visible attribution to the original author in one of the following ways:
+   
+   a) In the project's README or documentation file, include:
+      "This project uses meet-layout-grid by @thangdevalone 
+       (https://github.com/thangdevalone/meet-layout-grid)"
+   
+   b) In an "About" or "Credits" section of the application, include:
+      "Powered by meet-layout-grid - https://github.com/thangdevalone/meet-layout-grid"
+   
+   c) In the project's package.json or equivalent dependency manifest, ensure 
+      the package is listed with its original name and author information intact.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,3 +32,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+TL;DR - Bạn được phép:
+✅ Sử dụng miễn phí cho dự án cá nhân và thương mại
+✅ Chỉnh sửa và phân phối lại
+✅ Sử dụng trong các dự án closed-source
+
+Yêu cầu duy nhất:
+📝 Ghi nguồn/credit cho tác giả gốc trong README hoặc phần About của dự án

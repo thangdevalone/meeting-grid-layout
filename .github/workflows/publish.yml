@@ -1,0 +1,192 @@
+name: 📦 Build & Publish to NPM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  build-and-publish:
+    name: 🚀 Build & Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔨 Build packages
+        run: pnpm build
+
+      - name: 🔍 Determine version bump type
+        id: version_type
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.version_type }}" >> $GITHUB_OUTPUT
+          else
+            # Auto-detect from commit message
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            if echo "$COMMIT_MSG" | grep -iqE "^(feat|feature)(\(.+\))?!:|BREAKING CHANGE"; then
+              echo "type=major" >> $GITHUB_OUTPUT
+            elif echo "$COMMIT_MSG" | grep -iqE "^(feat|feature)(\(.+\))?:"; then
+              echo "type=minor" >> $GITHUB_OUTPUT
+            else
+              echo "type=patch" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: 📝 Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 🔼 Bump version in all packages
+        id: bump_version
+        run: |
+          VERSION_TYPE=${{ steps.version_type.outputs.type }}
+          
+          # Get current version from core package
+          CURRENT_VERSION=$(node -p "require('./packages/core/package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Calculate new version
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          
+          case $VERSION_TYPE in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$major.$minor.$patch"
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          # Update version in all package.json files
+          for pkg in packages/core packages/react packages/vue; do
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('$pkg/package.json', 'utf8'));
+              pkg.version = '$NEW_VERSION';
+              fs.writeFileSync('$pkg/package.json', JSON.stringify(pkg, null, 4) + '\n');
+            "
+            echo "Updated $pkg to version $NEW_VERSION"
+          done
+          
+          # Also update root package.json
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$NEW_VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 4) + '\n');
+          "
+          
+          echo "All packages updated to version $NEW_VERSION"
+
+      - name: 📤 Commit version bump
+        run: |
+          git add .
+          git commit -m "chore(release): v${{ steps.bump_version.outputs.new_version }} 🎉" || echo "No changes to commit"
+          git push
+
+      - name: 🏷️ Create Git tag
+        run: |
+          git tag -a "v${{ steps.bump_version.outputs.new_version }}" -m "Release v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+
+      - name: 📦 Publish to NPM
+        run: |
+          # Publish packages in order (core first, then react and vue)
+          cd packages/core && pnpm publish --access public --no-git-checks
+          cd ../react && pnpm publish --access public --no-git-checks
+          cd ../vue && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: 📝 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.bump_version.outputs.new_version }}
+          name: Release v${{ steps.bump_version.outputs.new_version }}
+          body: |
+            ## 📦 Meet Layout Grid v${{ steps.bump_version.outputs.new_version }}
+            
+            ### Installation
+            
+            ```bash
+            # Core (Vanilla JS)
+            npm install @thangdevalone/meet-layout-grid-core@${{ steps.bump_version.outputs.new_version }}
+            
+            # React
+            npm install @thangdevalone/meet-layout-grid-react@${{ steps.bump_version.outputs.new_version }}
+            
+            # Vue 3
+            npm install @thangdevalone/meet-layout-grid-vue@${{ steps.bump_version.outputs.new_version }}
+            ```
+            
+            ### Changes
+            
+            See [CHANGELOG](https://github.com/thangdevalone/meet-layout-grid/blob/main/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ✅ Summary
+        run: |
+          echo "## 🎉 Published successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Published packages:" >> $GITHUB_STEP_SUMMARY
+          echo "- [@thangdevalone/meet-layout-grid-core](https://www.npmjs.com/package/@thangdevalone/meet-layout-grid-core)" >> $GITHUB_STEP_SUMMARY
+          echo "- [@thangdevalone/meet-layout-grid-react](https://www.npmjs.com/package/@thangdevalone/meet-layout-grid-react)" >> $GITHUB_STEP_SUMMARY
+          echo "- [@thangdevalone/meet-layout-grid-vue](https://www.npmjs.com/package/@thangdevalone/meet-layout-grid-vue)" >> $GITHUB_STEP_SUMMARY
