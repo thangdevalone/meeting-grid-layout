@@ -155,9 +155,19 @@ const pinnedIndexProp = computed(() =>
   <div class="app">
     <!-- Header with controls -->
     <header class="header">
-      <div>
-        <h1 class="header-title">Meet Layout Grid</h1>
-        <p class="header-subtitle">Vue 3 Demo with Motion Animations</p>
+      <div class="header-left">
+        <div>
+          <h1 class="header-title">Meet Layout Grid</h1>
+          <p class="header-subtitle">Vue 3 Demo with Motion Animations</p>
+        </div>
+        <a
+          href="https://github.com/thangdevalone/meeting-layout-grid"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-github"
+        >
+          Star on GitHub
+        </a>
       </div>
 
       <div class="controls">

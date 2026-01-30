@@ -49,6 +49,12 @@ body {
   flex-shrink: 0;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .header-title {
   font-size: 24px;
   font-weight: 700;
@@ -62,6 +68,18 @@ body {
   color: var(--text-secondary);
   font-size: 14px;
   margin-top: 2px;
+}
+
+.btn-github {
+  text-decoration: none;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-github:hover {
+  color: #fff;
 }
 
 /* Controls */

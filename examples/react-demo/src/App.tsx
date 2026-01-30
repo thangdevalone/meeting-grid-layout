@@ -150,9 +150,19 @@ export default function App() {
         <div className="app">
             {/* Header with controls */}
             <header className="header">
-                <div>
-                    <h1 className="header-title">Meet Layout Grid</h1>
-                    <p className="header-subtitle">React Demo with Motion Animations</p>
+                <div className="header-left">
+                    <div>
+                        <h1 className="header-title">Meet Layout Grid</h1>
+                        <p className="header-subtitle">React Demo with Motion Animations</p>
+                    </div>
+                    <a
+                        href="https://github.com/thangdevalone/meeting-layout-grid"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-github"
+                    >
+                        Star on GitHub
+                    </a>
                 </div>
 
                 <div className="controls">
