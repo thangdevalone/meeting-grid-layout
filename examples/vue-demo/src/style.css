@@ -316,3 +316,143 @@ body {
     font-size: 12px;
   }
 }
+
+/* Swipe Hint */
+.swipe-hint {
+  text-align: center;
+  background: var(--bg-secondary);
+  padding: 8px 16px;
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Touch action for swipe */
+html,
+body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+.grid-wrapper {
+  touch-action: pan-x;
+  user-select: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent text selection during swipe */
+.grid-wrapper * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Mobile improvements */
+@media (max-width: 640px) {
+  .header {
+    padding: 8px 12px;
+  }
+
+  .header-title {
+    font-size: 16px;
+  }
+
+  .header-subtitle {
+    display: none;
+  }
+
+  .controls {
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .controls::-webkit-scrollbar {
+    display: none;
+  }
+
+  .control-group {
+    flex-shrink: 0;
+    gap: 2px;
+  }
+
+  .control-label {
+    font-size: 9px;
+  }
+
+  .btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+  }
+
+  .btn-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .participant-count {
+    font-size: 14px;
+    min-width: 28px;
+  }
+
+  .grid-wrapper {
+    padding: 4px;
+    gap: 8px;
+  }
+
+  .grid-container {
+    border-radius: 8px;
+  }
+
+  .grid-item {
+    border-radius: 6px;
+  }
+
+  .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .participant-name {
+    font-size: 10px;
+  }
+
+  .pagination-controls {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .pagination-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .pagination-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .swipe-hint {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+}

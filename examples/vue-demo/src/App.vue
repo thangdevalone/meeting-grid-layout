@@ -2,6 +2,34 @@
 import { ref, computed, watch } from 'vue'
 import { GridContainer, GridItem, LayoutMode } from '@thangdevalone/meet-layout-grid-vue'
 
+// Swipe gesture tracking
+const touchStartX = ref<number | null>(null)
+const touchEndX = ref<number | null>(null)
+const minSwipeDistance = 50
+
+function onTouchStart(e: TouchEvent) {
+  touchEndX.value = null
+  touchStartX.value = e.targetTouches[0].clientX
+}
+
+function onTouchMove(e: TouchEvent) {
+  touchEndX.value = e.targetTouches[0].clientX
+}
+
+function onTouchEnd() {
+  if (!touchStartX.value || !touchEndX.value) return
+
+  const distance = touchStartX.value - touchEndX.value
+  const isLeftSwipe = distance > minSwipeDistance
+  const isRightSwipe = distance < -minSwipeDistance
+
+  if (isLeftSwipe) {
+    goToNextPage()
+  } else if (isRightSwipe) {
+    goToPrevPage()
+  }
+}
+
 // Generate random gradient for participant tiles
 function getRandomGradient(seed: number) {
   const hue1 = (seed * 137) % 360
@@ -56,11 +84,16 @@ const othersTotalPages = computed(() =>
     ? Math.ceil(othersCount.value / itemsPerPage.value) 
     : 1
 )
+// When gallery has pin, it uses sidebar layout internally (pagination for "others")
 const totalPages = computed(() => 
-  layoutMode.value === 'gallery' ? galleryTotalPages.value : othersTotalPages.value
+  layoutMode.value === 'gallery' && pinnedIndex.value === null 
+    ? galleryTotalPages.value 
+    : othersTotalPages.value
 )
 const effectiveCurrentPage = computed(() => 
-  layoutMode.value === 'gallery' ? currentPage.value : othersPage.value
+  layoutMode.value === 'gallery' && pinnedIndex.value === null 
+    ? currentPage.value 
+    : othersPage.value
 )
 
 const showSpeakerControl = computed(() => 
@@ -102,12 +135,14 @@ function nextPin() {
 }
 
 function goToPage(page: number) {
-  if (layoutMode.value === 'gallery') {
+  // When gallery has pin, it uses sidebar layout internally, so update othersPage
+  if (layoutMode.value === 'gallery' && pinnedIndex.value === null) {
     currentPage.value = page
   } else {
     othersPage.value = page
   }
 }
+
 
 function goToPrevPage() {
   if (effectiveCurrentPage.value > 0) {
@@ -140,11 +175,14 @@ watch([totalPages, layoutMode], () => {
 })
 
 // Grid props computed
+// When gallery has pinned participant, it uses sidebar layout internally, so use maxVisibleOthers
+const isGalleryWithPin = computed(() => layoutMode.value === 'gallery' && pinnedIndex.value !== null)
+
 const maxItemsPerPageProp = computed(() => 
-  layoutMode.value === 'gallery' && paginationEnabled.value ? itemsPerPage.value : 0
+  layoutMode.value === 'gallery' && paginationEnabled.value && !isGalleryWithPin.value ? itemsPerPage.value : 0
 )
 const maxVisibleOthersProp = computed(() => 
-  layoutMode.value !== 'gallery' && paginationEnabled.value ? itemsPerPage.value : 0
+  (layoutMode.value !== 'gallery' || isGalleryWithPin.value) && paginationEnabled.value ? itemsPerPage.value : 0
 )
 const pinnedIndexProp = computed(() => 
   layoutMode.value === 'gallery' ? (pinnedIndex.value ?? undefined) : speakerIndex.value
@@ -291,8 +329,13 @@ const pinnedIndexProp = computed(() =>
       </div>
     </header>
 
-    <!-- Grid -->
-    <div class="grid-wrapper">
+    <!-- Grid with swipe support -->
+    <div 
+      class="grid-wrapper"
+      @touchstart="paginationEnabled && totalPages > 1 ? onTouchStart($event) : undefined"
+      @touchmove="paginationEnabled && totalPages > 1 ? onTouchMove($event) : undefined"
+      @touchend="paginationEnabled && totalPages > 1 ? onTouchEnd() : undefined"
+    >
       <GridContainer
         class="grid-container"
         :aspect-ratio="aspectRatio"
@@ -303,9 +346,9 @@ const pinnedIndexProp = computed(() =>
         :sidebar-position="sidebarPosition"
         :count="participants.length"
         :max-items-per-page="maxItemsPerPageProp"
-        :current-page="layoutMode === 'gallery' ? currentPage : 0"
+        :current-page="layoutMode === 'gallery' && !isGalleryWithPin ? currentPage : 0"
         :max-visible-others="maxVisibleOthersProp"
-        :current-others-page="layoutMode !== 'gallery' ? othersPage : 0"
+        :current-others-page="(layoutMode !== 'gallery' || isGalleryWithPin) ? othersPage : 0"
         spring-preset="smooth"
       >
         <GridItem
@@ -367,6 +410,11 @@ const pinnedIndexProp = computed(() =>
         >
           →
         </button>
+      </div>
+
+      <!-- Swipe hint -->
+      <div v-if="paginationEnabled && totalPages > 1" class="swipe-hint">
+        👆 Swipe left/right to navigate
       </div>
     </div>
   </div>

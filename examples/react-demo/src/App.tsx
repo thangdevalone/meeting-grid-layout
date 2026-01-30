@@ -79,13 +79,16 @@ export default function App() {
     // Calculate pagination values
     const othersCount = participants.length - 1
 
+    // When gallery has pinned participant, it uses sidebar layout internally
+    const isGalleryWithPin = layoutMode === 'gallery' && pinnedIndex !== null
+
     // When pagination is enabled, itemsPerPage controls how many items per page for all modes
     const galleryTotalPages = paginationEnabled && itemsPerPage > 0 ? Math.ceil(participants.length / itemsPerPage) : 1
     const othersTotalPages = paginationEnabled && itemsPerPage > 0 ? Math.ceil(othersCount / itemsPerPage) : 1
 
-    // Use the appropriate total pages based on mode
-    const totalPages = layoutMode === 'gallery' ? galleryTotalPages : othersTotalPages
-    const effectiveCurrentPage = layoutMode === 'gallery' ? currentPage : othersPage
+    // Use the appropriate total pages based on mode (gallery with pin uses othersPage)
+    const totalPages = layoutMode === 'gallery' && !isGalleryWithPin ? galleryTotalPages : othersTotalPages
+    const effectiveCurrentPage = layoutMode === 'gallery' && !isGalleryWithPin ? currentPage : othersPage
 
     // Reset page when participants change or pagination toggles
     useEffect(() => {
@@ -120,28 +123,29 @@ export default function App() {
 
     // Unified pagination controls - works for both gallery and speaker/sidebar
     const goToNextPage = useCallback(() => {
-        if (layoutMode === 'gallery') {
+        // Gallery with pin uses sidebar layout internally, so use othersPage
+        if (layoutMode === 'gallery' && pinnedIndex === null) {
             setCurrentPage((prev) => Math.min(prev + 1, galleryTotalPages - 1))
         } else {
             setOthersPage((prev) => Math.min(prev + 1, othersTotalPages - 1))
         }
-    }, [layoutMode, galleryTotalPages, othersTotalPages])
+    }, [layoutMode, pinnedIndex, galleryTotalPages, othersTotalPages])
 
     const goToPrevPage = useCallback(() => {
-        if (layoutMode === 'gallery') {
+        if (layoutMode === 'gallery' && pinnedIndex === null) {
             setCurrentPage((prev) => Math.max(prev - 1, 0))
         } else {
             setOthersPage((prev) => Math.max(prev - 1, 0))
         }
-    }, [layoutMode])
+    }, [layoutMode, pinnedIndex])
 
     const goToPage = useCallback((page: number) => {
-        if (layoutMode === 'gallery') {
+        if (layoutMode === 'gallery' && pinnedIndex === null) {
             setCurrentPage(page)
         } else {
             setOthersPage(page)
         }
-    }, [layoutMode])
+    }, [layoutMode, pinnedIndex])
 
     // Swipe handlers
     const swipeHandlers = useSwipe(goToNextPage, goToPrevPage)
@@ -345,10 +349,10 @@ export default function App() {
                     sidebarPosition={sidebarPosition}
                     count={participants.length}
                     springPreset="smooth"
-                    maxItemsPerPage={layoutMode === 'gallery' && paginationEnabled ? itemsPerPage : 0}
-                    currentPage={layoutMode === 'gallery' ? currentPage : 0}
-                    maxVisibleOthers={layoutMode !== 'gallery' && paginationEnabled ? itemsPerPage : 0}
-                    currentOthersPage={layoutMode !== 'gallery' ? othersPage : 0}
+                    maxItemsPerPage={layoutMode === 'gallery' && paginationEnabled && !isGalleryWithPin ? itemsPerPage : 0}
+                    currentPage={layoutMode === 'gallery' && !isGalleryWithPin ? currentPage : 0}
+                    maxVisibleOthers={(layoutMode !== 'gallery' || isGalleryWithPin) && paginationEnabled ? itemsPerPage : 0}
+                    currentOthersPage={(layoutMode !== 'gallery' || isGalleryWithPin) ? othersPage : 0}
                 >
                     {participants.map((participant, index) => (
                         <GridItem key={participant.id} index={index}>
