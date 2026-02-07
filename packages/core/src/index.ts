@@ -84,6 +84,16 @@ export interface MeetGridOptions extends GridOptions {
    * itemAspectRatios: ["16:9", "9:16", undefined]
    */
   itemAspectRatios?: (ItemAspectRatio | undefined)[]
+  /**
+   * Custom width for the floating PiP item in 2-person mode.
+   * Overrides the default responsive size (mobile: 90, desktop: 130).
+   */
+  floatWidth?: number
+  /**
+   * Custom height for the floating PiP item in 2-person mode.
+   * Overrides the default responsive size (mobile: 120, desktop: 175).
+   */
+  floatHeight?: number
 }
 
 /**
@@ -1252,10 +1262,10 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
         const mainWidth = W
         const mainHeight = H
 
-        // Float PiP dimensions — match demo zoom mode sizes exactly
+        // Float PiP dimensions — use custom size if provided, else responsive defaults
         const isMobileSize = W < 500
-        const floatW = isMobileSize ? 90 : 130
-        const floatH = isMobileSize ? 120 : 175
+        const floatW = options.floatWidth ?? (isMobileSize ? 130 : 180)
+        const floatH = options.floatHeight ?? (isMobileSize ? 175 : 240)
 
         const pagination = createDefaultPagination(2)
         const getItemDimensions = (index: number) =>

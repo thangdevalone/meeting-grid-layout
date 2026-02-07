@@ -604,7 +604,7 @@ export default function App() {
           >
             {participants.map((participant, index) => (
               <GridItem key={participant.id} index={index}>
-                {({ isLastVisibleOther, hiddenCount }) => {
+                {({ isLastVisibleOther, hiddenCount, isFloat: itemIsFloat }) => {
                   // If this is the last visible item AND there are hidden items,
                   // show ONLY the "+X" indicator (no participant content)
                   // BUT only when pagination is OFF - with pagination ON, users can navigate
@@ -650,6 +650,76 @@ export default function App() {
                         >
                           more
                         </span>
+                      </div>
+                    )
+                  }
+
+                  // Float PiP — compact, polished UI
+                  if (itemIsFloat) {
+                    return (
+                      <div
+                        className="grid-item float-pip-item"
+                        style={{
+                          background: participant.gradient,
+                          width: '100%',
+                          height: '100%',
+                          borderRadius: '14px',
+                          border: '2px solid rgba(255,255,255,0.25)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {/* Drag hint badge */}
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            fontSize: '0.65rem',
+                            background: 'rgba(0,0,0,0.5)',
+                            backdropFilter: 'blur(8px)',
+                            padding: '2px 10px',
+                            borderRadius: '8px',
+                            color: 'rgba(255,255,255,0.85)',
+                            fontWeight: 500,
+                            letterSpacing: '0.3px',
+                            pointerEvents: 'none' as const,
+                            whiteSpace: 'nowrap' as const,
+                          }}
+                        >
+                          ⠿ Drag
+                        </div>
+                        <div className="grid-item-content">
+                          <div
+                            className="avatar"
+                            style={{
+                              background: 'rgba(255,255,255,0.2)',
+                              width: '44px',
+                              height: '44px',
+                              fontSize: '1rem',
+                              backdropFilter: 'blur(4px)',
+                            }}
+                          >
+                            {participant.initials}
+                          </div>
+                          <span
+                            className="participant-name"
+                            style={{
+                              color: '#fff',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              marginTop: '4px',
+                              textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                            }}
+                          >
+                            {participant.name}
+                          </span>
+                        </div>
                       </div>
                     )
                   }

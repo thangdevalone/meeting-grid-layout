@@ -6,7 +6,7 @@ import {
   MeetGridResult,
   SpringPreset,
 } from '@thangdevalone/meet-layout-grid-core'
-import { motion } from 'motion-v'
+import { animate, motion, useMotionValue } from 'motion-v'
 import {
   computed,
   ComputedRef,
@@ -18,6 +18,7 @@ import {
   provide,
   ref,
   Ref,
+  watch,
 } from 'vue'
 import { useGridDimensions, useMeetGrid } from './composables'
 
@@ -108,6 +109,16 @@ export const GridContainer = defineComponent({
       type: Array as PropType<(ItemAspectRatio | undefined)[]>,
       default: undefined,
     },
+    /** Custom width for the floating PiP item in 2-person mode */
+    floatWidth: {
+      type: Number,
+      default: undefined,
+    },
+    /** Custom height for the floating PiP item in 2-person mode */
+    floatHeight: {
+      type: Number,
+      default: undefined,
+    },
 
     /** HTML tag to render */
     tag: {
@@ -132,6 +143,8 @@ export const GridContainer = defineComponent({
       maxVisible: props.maxVisible,
       currentVisiblePage: props.currentVisiblePage,
       itemAspectRatios: props.itemAspectRatios,
+      floatWidth: props.floatWidth,
+      floatHeight: props.floatHeight,
     }))
 
     const grid = useMeetGrid(gridOptions)
@@ -216,12 +229,10 @@ export const GridItem = defineComponent({
     const isFloat = computed(() => grid.value.floatIndex === props.index)
     const floatDims = computed(() => grid.value.floatDimensions ?? { width: 120, height: 160 })
 
-    // Float drag state
+    // Float state — uses motion values like React version
     const floatAnchor = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('bottom-right')
-    const floatDragging = ref(false)
-    const floatDragOffset = ref({ x: 0, y: 0 })
-    const floatStartPos = ref({ x: 0, y: 0 })
-    const floatDisplayPos = ref({ x: 0, y: 0 })
+    const x = useMotionValue(0)
+    const y = useMotionValue(0)
     const floatInitialized = ref(false)
 
     const getFloatCornerPos = (corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
@@ -238,11 +249,11 @@ export const GridItem = defineComponent({
       }
     }
 
-    const findFloatNearestCorner = (x: number, y: number) => {
+    const findFloatNearestCorner = (posX: number, posY: number) => {
       const fw = floatDims.value.width
       const fh = floatDims.value.height
-      const centerX = x + fw / 2
-      const centerY = y + fh / 2
+      const centerX = posX + fw / 2
+      const centerY = posY + fh / 2
       const dims = containerDimensions.value
       const isLeft = centerX < dims.width / 2
       const isTop = centerY < dims.height / 2
@@ -252,37 +263,32 @@ export const GridItem = defineComponent({
       return 'bottom-right' as const
     }
 
-    const floatCornerPos = computed(() => getFloatCornerPos(floatAnchor.value))
+    // Initialize float position when container has dimensions
+    watch(
+      [isFloat, () => containerDimensions.value.width, () => containerDimensions.value.height],
+      ([floating, w, h]) => {
+        if (floating && w > 0 && h > 0 && !floatInitialized.value) {
+          const pos = getFloatCornerPos(floatAnchor.value)
+          x.set(pos.x)
+          y.set(pos.y)
+          floatInitialized.value = true
+        }
+      },
+      { immediate: true }
+    )
 
-    const handleFloatDragStart = (e: MouseEvent | TouchEvent) => {
-      floatDragging.value = true
-      const pos = 'touches' in e ? e.touches[0] : e
-      floatStartPos.value = { x: pos.clientX, y: pos.clientY }
-      floatDragOffset.value = { x: 0, y: 0 }
-    }
-
-    const handleFloatDragMove = (e: MouseEvent | TouchEvent) => {
-      if (!floatDragging.value) return
-      e.preventDefault()
-      const pos = 'touches' in e ? e.touches[0] : e
-      floatDragOffset.value = {
-        x: pos.clientX - floatStartPos.value.x,
-        y: pos.clientY - floatStartPos.value.y,
+    // Update float position when anchor changes
+    watch(
+      [floatAnchor, () => containerDimensions.value.width, () => containerDimensions.value.height],
+      ([, w, h]) => {
+        if (isFloat.value && floatInitialized.value && w > 0 && h > 0) {
+          const pos = getFloatCornerPos(floatAnchor.value)
+          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+          animate(x, pos.x, springCfg)
+          animate(y, pos.y, springCfg)
+        }
       }
-      floatDisplayPos.value = {
-        x: floatCornerPos.value.x + floatDragOffset.value.x,
-        y: floatCornerPos.value.y + floatDragOffset.value.y,
-      }
-    }
-
-    const handleFloatDragEnd = () => {
-      if (!floatDragging.value) return
-      floatDragging.value = false
-      const nearest = findFloatNearestCorner(floatDisplayPos.value.x, floatDisplayPos.value.y)
-      floatAnchor.value = nearest
-      floatDisplayPos.value = getFloatCornerPos(nearest)
-      floatDragOffset.value = { x: 0, y: 0 }
-    }
+    )
 
     // Calculate if this is the last visible "other" item
     const isLastVisibleOther = computed(() => {
@@ -298,6 +304,7 @@ export const GridItem = defineComponent({
       contentDimensions: contentDimensions.value,
       isLastVisibleOther: isLastVisibleOther.value,
       hiddenCount: hiddenCount.value,
+      isFloat: isFloat.value,
     }))
 
     return () => {
@@ -305,53 +312,56 @@ export const GridItem = defineComponent({
         return null
       }
 
-      // Float mode: render as draggable PiP
+      // Float mode: render as draggable PiP (matching React approach)
       if (isFloat.value) {
         const dims = containerDimensions.value
         if (dims.width === 0 || dims.height === 0) return null
 
-        // Initialize position on first render
-        if (!floatInitialized.value) {
-          floatDisplayPos.value = floatCornerPos.value
-          floatInitialized.value = true
+        const dragConstraints = {
+          left: 12,
+          right: dims.width - floatDims.value.width - 12,
+          top: 12,
+          bottom: dims.height - floatDims.value.height - 12,
+        }
+
+        const handleDragEnd = () => {
+          const currentX = x.get()
+          const currentY = y.get()
+          const nearestCorner = findFloatNearestCorner(currentX, currentY)
+          floatAnchor.value = nearestCorner
+          const snapPos = getFloatCornerPos(nearestCorner)
+          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+          animate(x, snapPos.x, springCfg)
+          animate(y, snapPos.y, springCfg)
         }
 
         return h(
           motion.div,
           {
-            animate: {
-              x: floatDisplayPos.value.x,
-              y: floatDisplayPos.value.y,
-              opacity: 1,
-              scale: floatDragging.value ? 1.05 : 1,
-            },
-            transition: floatDragging.value
-              ? { duration: 0 }
-              : { type: 'spring', stiffness: 400, damping: 30 },
+            drag: true,
+            dragMomentum: false,
+            dragElastic: 0.1,
+            dragConstraints,
             style: {
               position: 'absolute',
               width: `${floatDims.value.width}px`,
               height: `${floatDims.value.height}px`,
               borderRadius: '12px',
-              boxShadow: floatDragging.value
-                ? '0 8px 32px rgba(0,0,0,0.4)'
-                : '0 4px 20px rgba(0,0,0,0.3)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
               overflow: 'hidden',
-              cursor: floatDragging.value ? 'grabbing' : 'grab',
+              cursor: 'grab',
               zIndex: 100,
               touchAction: 'none',
               left: 0,
               top: 0,
+              x: x,
+              y: y,
             },
+            whileDrag: { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+            transition: { type: 'spring', stiffness: 400, damping: 30 },
             'data-grid-index': props.index,
             'data-grid-float': true,
-            onMousedown: handleFloatDragStart,
-            onMousemove: handleFloatDragMove,
-            onMouseup: handleFloatDragEnd,
-            onMouseleave: handleFloatDragEnd,
-            onTouchstart: handleFloatDragStart,
-            onTouchmove: handleFloatDragMove,
-            onTouchend: handleFloatDragEnd,
+            onDragEnd: handleDragEnd,
           },
           () => slots.default?.(slotProps.value)
         )
@@ -388,6 +398,7 @@ export const GridItem = defineComponent({
         motion.div,
         {
           as: props.tag,
+          initial: animateProps,
           animate: animateProps,
           transition: {
             type: springConfig.type,
@@ -509,11 +520,9 @@ export const FloatingGridItem = defineComponent({
     const { dimensions } = context
     const currentAnchor = ref(props.anchor)
 
-    // Drag state
-    const isDragging = ref(false)
-    const dragOffset = ref({ x: 0, y: 0 })
-    const startPos = ref({ x: 0, y: 0 })
-    const displayPosition = ref({ x: 0, y: 0 })
+    // Motion values for position (matching React pattern)
+    const x = useMotionValue(0)
+    const y = useMotionValue(0)
     const isInitialized = ref(false)
 
     // Get container dimensions from context
@@ -544,11 +553,11 @@ export const FloatingGridItem = defineComponent({
 
     // Find nearest corner based on current position
     const findNearestCorner = (
-      x: number,
-      y: number
+      posX: number,
+      posY: number
     ): 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' => {
-      const centerX = x + props.width / 2
-      const centerY = y + props.height / 2
+      const centerX = posX + props.width / 2
+      const centerY = posY + props.height / 2
       const dims = containerDimensions.value
       const containerCenterX = dims.width / 2
       const containerCenterY = dims.height / 2
@@ -562,48 +571,33 @@ export const FloatingGridItem = defineComponent({
       return 'bottom-right'
     }
 
-    const currentPos = computed(() => getCornerPosition(currentAnchor.value))
+    // Initialize float position when container has dimensions
+    watch(
+      [() => containerDimensions.value.width, () => containerDimensions.value.height],
+      ([w, h]) => {
+        if (w > 0 && h > 0 && !isInitialized.value) {
+          const pos = getCornerPosition(currentAnchor.value)
+          x.set(pos.x)
+          y.set(pos.y)
+          isInitialized.value = true
+        }
+      },
+      { immediate: true }
+    )
 
-    // Drag handlers
-    const handleDragStart = (e: MouseEvent | TouchEvent) => {
-      isDragging.value = true
-      const pos = 'touches' in e ? e.touches[0] : e
-      startPos.value = { x: pos.clientX, y: pos.clientY }
-      dragOffset.value = { x: 0, y: 0 }
-    }
-
-    const handleDragMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging.value) return
-      e.preventDefault()
-      const pos = 'touches' in e ? e.touches[0] : e
-      dragOffset.value = {
-        x: pos.clientX - startPos.value.x,
-        y: pos.clientY - startPos.value.y,
+    // Update position when anchor changes (e.g. prop change)
+    watch(
+      [() => props.anchor, () => containerDimensions.value.width, () => containerDimensions.value.height],
+      ([newAnchor, w, h]) => {
+        if (isInitialized.value && w > 0 && h > 0 && newAnchor !== currentAnchor.value) {
+          currentAnchor.value = newAnchor
+          const pos = getCornerPosition(newAnchor)
+          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+          animate(x, pos.x, springCfg)
+          animate(y, pos.y, springCfg)
+        }
       }
-      // Update display position during drag
-      displayPosition.value = {
-        x: currentPos.value.x + dragOffset.value.x,
-        y: currentPos.value.y + dragOffset.value.y,
-      }
-    }
-
-    const handleDragEnd = () => {
-      if (!isDragging.value) return
-      isDragging.value = false
-
-      // Calculate final position
-      const finalX = displayPosition.value.x
-      const finalY = displayPosition.value.y
-
-      // Find nearest corner and snap
-      const nearestCorner = findNearestCorner(finalX, finalY)
-      currentAnchor.value = nearestCorner
-      emit('anchorChange', nearestCorner)
-
-      // Update display position to corner (will animate)
-      displayPosition.value = getCornerPosition(nearestCorner)
-      dragOffset.value = { x: 0, y: 0 }
-    }
+    )
 
     return () => {
       const dims = containerDimensions.value
@@ -613,44 +607,51 @@ export const FloatingGridItem = defineComponent({
         return null
       }
 
-      // Initialize position on first render
-      if (!isInitialized.value) {
-        displayPosition.value = currentPos.value
-        isInitialized.value = true
+      const padding = props.edgePadding + props.initialPosition.x
+      const dragConstraints = {
+        left: padding,
+        right: dims.width - props.width - padding,
+        top: padding,
+        bottom: dims.height - props.height - padding,
+      }
+
+      const handleDragEnd = () => {
+        const currentX = x.get()
+        const currentY = y.get()
+        const nearestCorner = findNearestCorner(currentX, currentY)
+        currentAnchor.value = nearestCorner
+        emit('anchorChange', nearestCorner)
+        const snapPos = getCornerPosition(nearestCorner)
+        const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+        animate(x, snapPos.x, springCfg)
+        animate(y, snapPos.y, springCfg)
       }
 
       return h(
         motion.div,
         {
-          animate: {
-            x: displayPosition.value.x,
-            y: displayPosition.value.y,
-            opacity: 1,
-            scale: isDragging.value ? 1.05 : 1,
-          },
-          transition: isDragging.value
-            ? { duration: 0 }
-            : { type: 'spring', stiffness: 400, damping: 30 },
+          drag: true,
+          dragMomentum: false,
+          dragElastic: 0.1,
+          dragConstraints,
           style: {
             position: 'absolute',
             width: `${props.width}px`,
             height: `${props.height}px`,
             borderRadius: `${props.borderRadius}px`,
-            boxShadow: isDragging.value ? '0 8px 32px rgba(0,0,0,0.4)' : props.boxShadow,
+            boxShadow: props.boxShadow,
             overflow: 'hidden',
-            cursor: isDragging.value ? 'grabbing' : 'grab',
+            cursor: 'grab',
             zIndex: 100,
             touchAction: 'none',
             left: 0,
             top: 0,
+            x: x,
+            y: y,
           },
-          onMousedown: handleDragStart,
-          onMousemove: handleDragMove,
-          onMouseup: handleDragEnd,
-          onMouseleave: handleDragEnd,
-          onTouchstart: handleDragStart,
-          onTouchmove: handleDragMove,
-          onTouchend: handleDragEnd,
+          whileDrag: { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+          transition: { type: 'spring', stiffness: 400, damping: 30 },
+          onDragEnd: handleDragEnd,
         },
         slots.default?.()
       )

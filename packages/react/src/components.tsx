@@ -53,6 +53,10 @@ export interface GridContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
    * @example ['16:9', '9:16', undefined]
    */
   itemAspectRatios?: (ItemAspectRatio | undefined)[]
+  /** Custom width for the floating PiP item in 2-person mode */
+  floatWidth?: number
+  /** Custom height for the floating PiP item in 2-person mode */
+  floatHeight?: number
 }
 
 /**
@@ -76,6 +80,8 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     maxVisible,
     currentVisiblePage,
     itemAspectRatios,
+    floatWidth,
+    floatHeight,
 
     ...props
   },
@@ -101,6 +107,8 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     maxVisible,
     currentVisiblePage,
     itemAspectRatios,
+    floatWidth,
+    floatHeight,
   }
 
   const grid = useMeetGrid(gridOptions)
@@ -170,6 +178,8 @@ export interface GridItemProps extends Omit<
     isLastVisibleOther: boolean
     /** Number of hidden items (for '+X more' indicator) */
     hiddenCount: number
+    /** True if this item is rendered as a floating PiP */
+    isFloat: boolean
   }) => ReactNode)
   /** Optional item-specific aspect ratio (overrides itemAspectRatios from container) */
   itemAspectRatio?: ItemAspectRatio
@@ -282,7 +292,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
   // Render children - support both ReactNode and render function
   const renderChildren = () => {
     if (typeof children === 'function') {
-      return children({ contentDimensions, isLastVisibleOther, hiddenCount })
+      return children({ contentDimensions, isLastVisibleOther, hiddenCount, isFloat })
     }
     return children
   }
