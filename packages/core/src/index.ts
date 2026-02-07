@@ -536,13 +536,16 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
     // Others on top/bottom — find best row configuration
     const areaW = W - gap * 2
 
-    // Use 1:1 ratio for others on mobile portrait, else use global ratio
-    const othersRatio = isPortrait ? 1 : ratio
+    // Use container-proportional ratio for others on mobile portrait, else global ratio
+    const isMobilePin = W < 500
+    const othersRatio = isPortrait ? (isMobilePin ? (W / 2) / (H / 3) : 1) : ratio
 
     // Search for best layout
     let bestOthersH = 0
     let bestThumbArea = 0
     const maxRows = Math.min(3, visibleOthers || 1)
+    // On small mobile, allow others area up to 60% so 2x2 fits
+    const maxOthersRatio = isMobilePin ? 0.6 : 0.5
 
     for (let rows = 1; rows <= maxRows; rows++) {
       const cols = Math.ceil((visibleOthers || 1) / rows)
@@ -551,7 +554,7 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
       const requiredH = rows * thumbH + (rows - 1) * gap + gap * 2
 
       const areaRatio = requiredH / H
-      if (areaRatio > 0.5) continue // Others area should not exceed 50%
+      if (areaRatio > maxOthersRatio) continue // Others area limit
       if (thumbH < 40) continue // Minimum thumb height
 
       const thumbArea = thumbW * thumbH
@@ -641,8 +644,9 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
 
   // Layout others with uniform grid inside their area
   {
-    // Use 1:1 ratio for others on mobile portrait, else use global ratio
-    const othersRatio = isPortrait ? 1 : ratio
+    // Use container-proportional ratio for others on mobile portrait
+    const isMobileOthers = W < 500
+    const othersRatio = isPortrait ? (isMobileOthers ? (W / 2) / (H / 3) : 1) : ratio
 
     let thumbCols = 1
     let thumbRows = 1
@@ -651,29 +655,38 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
 
     if (visibleOthers > 0) {
       if (isVertical) {
-        let bestScore = -1
-        for (let cols = 1; cols <= visibleOthers; cols++) {
-          const rows = Math.ceil(visibleOthers / cols)
-          const maxTileW = (othersAreaWidth - (cols - 1) * gap) / cols
-          const maxTileH = (othersAreaHeight - (rows - 1) * gap) / rows
+        if (isMobileOthers && isPortrait) {
+          // Mobile: fill stretch — compute cols/rows to fill the area, then stretch items
+          thumbCols = Math.min(visibleOthers, 2) // Max 2 cols on mobile
+          thumbRows = Math.ceil(visibleOthers / thumbCols)
+          thumbWidth = (othersAreaWidth - (thumbCols - 1) * gap) / thumbCols
+          thumbHeight = (othersAreaHeight - (thumbRows - 1) * gap - gap) / thumbRows
+        } else {
+          // Normal: search for best layout maintaining ratio
+          let bestScore = -1
+          for (let cols = 1; cols <= visibleOthers; cols++) {
+            const rows = Math.ceil(visibleOthers / cols)
+            const maxTileW = (othersAreaWidth - (cols - 1) * gap) / cols
+            const maxTileH = (othersAreaHeight - (rows - 1) * gap) / rows
 
-          let tileW = maxTileW
-          let tileH = tileW * othersRatio
-          if (tileH > maxTileH) {
-            tileH = maxTileH
-            tileW = tileH / othersRatio
-          }
+            let tileW = maxTileW
+            let tileH = tileW * othersRatio
+            if (tileH > maxTileH) {
+              tileH = maxTileH
+              tileW = tileH / othersRatio
+            }
 
-          const area = tileW * tileH
-          const colsMultiplier = cols >= rows ? 1.5 : 0.5
-          const score = area * colsMultiplier
+            const area = tileW * tileH
+            const colsMultiplier = cols >= rows ? 1.5 : 0.5
+            const score = area * colsMultiplier
 
-          if (score > bestScore) {
-            bestScore = score
-            thumbCols = cols
-            thumbRows = rows
-            thumbWidth = tileW
-            thumbHeight = tileH
+            if (score > bestScore) {
+              bestScore = score
+              thumbCols = cols
+              thumbRows = rows
+              thumbWidth = tileW
+              thumbHeight = tileH
+            }
           }
         }
       } else {
@@ -952,20 +965,6 @@ function createEmptyMeetGridResult(layoutMode: LayoutMode): MeetGridResult {
   }
 }
 
-/**
- * Check if itemAspectRatios contains mixed (different) ratios
- */
-function hasMixedRatios(
-  itemAspectRatios: (ItemAspectRatio | undefined)[] | undefined,
-  defaultRatio: string
-): boolean {
-  if (!itemAspectRatios || itemAspectRatios.length === 0) return false
-  const ratios = new Set<string>()
-  for (const r of itemAspectRatios) {
-    ratios.add(r ?? defaultRatio)
-  }
-  return ratios.size > 1
-}
 
 /**
 /**
@@ -974,7 +973,16 @@ function hasMixedRatios(
  * Items are packed greedily into rows, then each row is scaled to fill width.
  */
 function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
-  const { dimensions, gap, aspectRatio, count, itemAspectRatios = [] } = options
+  const {
+    dimensions,
+    gap,
+    aspectRatio,
+    count,
+    itemAspectRatios = [],
+    maxItemsPerPage,
+    currentPage,
+    maxVisible = 0,
+  } = options
 
   if (count === 0) {
     return createEmptyMeetGridResult('gallery')
@@ -984,13 +992,51 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
   const availW = W - gap * 2
   const availH = H - gap * 2
 
-  // For each item, compute width/height ratio
+  // --- Pagination / Visual capping ---
+  let visibleCount = count
+  let hiddenCount = 0
+  let startIndex = 0
+  let endIndex = count
+
+  if (maxItemsPerPage && maxItemsPerPage > 0) {
+    const pagInfo = createPaginationInfo(count, maxItemsPerPage, currentPage)
+    visibleCount = pagInfo.itemsOnPage
+    startIndex = pagInfo.startIndex
+    endIndex = pagInfo.endIndex
+  } else if (maxVisible > 0 && count > maxVisible) {
+    visibleCount = maxVisible
+    hiddenCount = count - maxVisible + 1
+    startIndex = 0
+    endIndex = maxVisible
+  }
+
+  const pagination: PaginationInfo =
+    maxItemsPerPage && maxItemsPerPage > 0
+      ? createPaginationInfo(count, maxItemsPerPage, currentPage)
+      : {
+        enabled: false,
+        currentPage: 0,
+        totalPages: 1,
+        itemsOnPage: visibleCount,
+        startIndex,
+        endIndex,
+      }
+
+  // Slice to only visible items for layout
+  const visibleIndices: number[] = []
+  for (let i = startIndex; i < endIndex; i++) {
+    visibleIndices.push(i)
+  }
+
+  // For each visible item, compute width/height ratio
   const itemWHRatios: number[] = []
-  for (let i = 0; i < count; i++) {
-    const ratioStr = itemAspectRatios[i] ?? aspectRatio
+  for (const idx of visibleIndices) {
+    const ratioStr = itemAspectRatios[idx] ?? aspectRatio
     const hw = getAspectRatio(ratioStr)
     itemWHRatios.push(1 / hw) // width / height
   }
+
+  const effectiveCount = visibleIndices.length
 
   // Pack items into rows given a target row height
   function packRows(rowHeight: number): number[][] {
@@ -998,7 +1044,7 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
     let currentRow: number[] = []
     let rowW = 0
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < effectiveCount; i++) {
       const itemW = itemWHRatios[i] * rowHeight
       const gapW = currentRow.length > 0 ? gap : 0
 
@@ -1018,7 +1064,6 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
   }
 
   // Binary search for optimal row height
-  // The height that makes total layout height = availH
   let lo = 20
   let hi = availH
   let bestRows: number[][] = []
@@ -1042,7 +1087,6 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
   if (bestRows.length > 1 && bestRows[bestRows.length - 1].length === 1) {
     const lastItem = bestRows[bestRows.length - 1][0]
     const prevRow = bestRows[bestRows.length - 2]
-    // Move last lonely item to previous row if it won't make it too cramped
     if (prevRow.length <= 4) {
       prevRow.push(lastItem)
       bestRows.pop()
@@ -1050,35 +1094,41 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
   }
 
   // For each row, scale items to exactly fill availW
+  // posMap maps relative index (0..effectiveCount-1) -> layout info
   const posMap = new Map<number, { position: Position; dimensions: GridDimensions }>()
   const rowCount = bestRows.length
 
-  // Calculate actual row heights: each row's natural height based on its items fitting availW
   const rowHeights: number[] = []
   for (const row of bestRows) {
-    // Sum of natural widths at height=1
-    const totalUnitW = row.reduce((s, idx) => s + itemWHRatios[idx], 0)
-    // Available width minus gaps
+    const totalUnitW = row.reduce((s, relIdx) => s + itemWHRatios[relIdx], 0)
     const netW = availW - (row.length - 1) * gap
-    // Row height = netW / totalUnitW (so items at this height fill the width)
     rowHeights.push(netW / totalUnitW)
   }
 
-  // Scale all row heights to fit availH
   const totalRowH = rowHeights.reduce((s, h) => s + h, 0) + (rowCount - 1) * gap
-  const globalScale = availH / totalRowH
+  // Cap scale at 1.0 so items don't stretch beyond natural size (e.g., 4 items in 1 row)
+  // Scale both width AND height uniformly to preserve correct aspect ratios
+  const globalScale = Math.min(1.0, availH / totalRowH)
 
-  let currentTop = gap
+  // Calculate actual dimensions after uniform scaling
+  const scaledTotalH = rowHeights.reduce((s, h) => s + h * globalScale, 0) + (rowCount - 1) * gap
+  const verticalOffset = (availH - scaledTotalH) / 2
+
+  let currentTop = gap + verticalOffset
   for (let ri = 0; ri < rowCount; ri++) {
     const row = bestRows[ri]
     const finalRowH = rowHeights[ri] * globalScale
 
-    // Calculate individual item widths (proportional to their w/h ratio)
-    const totalUnitW = row.reduce((s, idx) => s + itemWHRatios[idx], 0)
+    const totalUnitW = row.reduce((s, relIdx) => s + itemWHRatios[relIdx], 0)
     const netW = availW - (row.length - 1) * gap
-    const itemWidths = row.map((idx) => (itemWHRatios[idx] / totalUnitW) * netW)
+    // Scale widths by the same factor as heights to maintain correct aspect ratios
+    const itemWidths = row.map((relIdx) => (itemWHRatios[relIdx] / totalUnitW) * netW * globalScale)
 
-    let currentLeft = gap
+    // Center row horizontally when scaled down
+    const scaledRowW = itemWidths.reduce((s, w) => s + w, 0) + (row.length - 1) * gap
+    const horizontalOffset = (availW - scaledRowW) / 2
+
+    let currentLeft = gap + horizontalOffset
     for (let ci = 0; ci < row.length; ci++) {
       posMap.set(row[ci], {
         position: { top: currentTop, left: currentLeft },
@@ -1089,15 +1139,24 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
     currentTop += finalRowH + gap
   }
 
+  // Map original (absolute) index -> position via relative index
   const getPosition = (index: number): Position => {
-    return posMap.get(index)?.position ?? { top: -9999, left: -9999 }
+    const relativeIndex = index - startIndex
+    if (relativeIndex < 0 || relativeIndex >= effectiveCount) {
+      return { top: -9999, left: -9999 }
+    }
+    return posMap.get(relativeIndex)?.position ?? { top: -9999, left: -9999 }
   }
 
   const getItemDimensions = (index: number): GridDimensions => {
-    return posMap.get(index)?.dimensions ?? { width: 0, height: 0 }
+    const relativeIndex = index - startIndex
+    if (relativeIndex < 0 || relativeIndex >= effectiveCount) {
+      return { width: 0, height: 0 }
+    }
+    return posMap.get(relativeIndex)?.dimensions ?? { width: 0, height: 0 }
   }
 
-  const pagination = createDefaultPagination(count)
+  const lastVisibleIndex = endIndex - 1
 
   return {
     width: availW,
@@ -1109,9 +1168,9 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
     getItemDimensions,
     isMainItem: () => false,
     pagination,
-    isItemVisible: () => true,
-    hiddenCount: 0,
-    getLastVisibleOthersIndex: () => -1,
+    isItemVisible: (index: number) => index >= startIndex && index < endIndex,
+    hiddenCount,
+    getLastVisibleOthersIndex: () => (hiddenCount > 0 ? lastVisibleIndex : -1),
     getItemContentDimensions: createGetItemContentDimensions(
       getItemDimensions,
       itemAspectRatios,
@@ -1144,9 +1203,39 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
         return createFlexiblePinGrid(options)
       }
 
-      // Check for mixed aspect ratios ? use flexible gallery layout
-      if (hasMixedRatios(options.itemAspectRatios, options.aspectRatio)) {
-        return createFlexibleGalleryGrid(options)
+      // Small mobile screens (width < 500px): override aspectRatio to container ratio
+      // This ensures items stretch to fill the screen in a proper grid (2x2, 2x3, etc.)
+      // instead of single-column layouts that waste space on small screens
+      // On tablets and larger screens, keep original ratio for proper aspect ratio rendering
+      const isMobile = options.dimensions.width < 500
+      if (isMobile && count > 1) {
+        const { width: cw, height: ch } = options.dimensions
+        options = { ...options, aspectRatio: `${Math.round(cw)}:${Math.round(ch)}` }
+      }
+
+      // Handle custom aspect ratios from itemAspectRatios
+      if (options.itemAspectRatios && options.itemAspectRatios.length > 0) {
+        const ratios = new Set<string>()
+        for (const r of options.itemAspectRatios) {
+          ratios.add(r ?? options.aspectRatio)
+        }
+
+        if (ratios.size === 1) {
+          // All items share the same ratio — use standard uniform grid with that ratio
+          // This gives optimal row/column distribution (e.g., all 9:16 items pack nicely)
+          const sharedRatio = [...ratios][0]
+          if (sharedRatio !== options.aspectRatio) {
+            options = { ...options, aspectRatio: sharedRatio }
+          }
+          // Fall through to standard uniform grid below
+        } else {
+          // Truly mixed ratios — use flexible justified gallery layout
+          // Only skip on small mobile screens where we force fill/stretch
+          if (!isMobile) {
+            return createFlexibleGalleryGrid(options)
+          }
+          // Mobile: fall through to standard uniform grid (ratio already overridden above)
+        }
       }
 
       // Priority: pagination > maxVisible
@@ -1172,13 +1261,13 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
         maxItemsPerPage && maxItemsPerPage > 0
           ? createPaginationInfo(count, maxItemsPerPage, currentPage)
           : {
-              enabled: false,
-              currentPage: 0,
-              totalPages: 1,
-              itemsOnPage: visibleCount,
-              startIndex,
-              endIndex,
-            }
+            enabled: false,
+            currentPage: 0,
+            totalPages: 1,
+            itemsOnPage: visibleCount,
+            startIndex,
+            endIndex,
+          }
 
       const effectiveCount = visibleCount
 

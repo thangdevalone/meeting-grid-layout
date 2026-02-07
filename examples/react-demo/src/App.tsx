@@ -653,79 +653,86 @@ export default function App() {
                     )
                   }
 
+                  const contentStyle: React.CSSProperties = {
+                    width: '100%',
+                    height: '100%',
+                  }
+
                   // Normal participant cell
                   return (
                     <div
                       className="grid-item"
                       style={{
-                        background: participant.gradient,
                         width: '100%',
                         height: '100%',
-                        borderRadius: '12px',
                         display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
                         position: 'relative',
-                        boxShadow: 'none',
                       }}
                     >
-                      {/* Badge for main participant (pinned) */}
-                      {index === pinnedIndex && layoutMode !== 'gallery' && (
-                        <div className="item-badge pinned">📌 Pinned</div>
-                      )}
+                      <div
+                        style={{
+                          ...contentStyle,
+                          background: participant.gradient,
+                          borderRadius: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                        }}
+                      >
+                        {/* Badge for pinned participant */}
+                        {index === pinnedIndex && (
+                          <div className="item-badge pinned">📌 Pinned</div>
+                        )}
 
-                      {/* Badge for pinned in gallery */}
-                      {index === pinnedIndex && layoutMode === 'gallery' && (
-                        <div className="item-badge pinned">📌 Pinned</div>
-                      )}
-
-                      <div className="grid-item-content">
-                        <div
-                          className="avatar"
-                          style={{
-                            background: 'rgba(255,255,255,0.2)',
-                          }}
-                        >
-                          {participant.initials}
+                        <div className="grid-item-content">
+                          <div
+                            className="avatar"
+                            style={{
+                              background: 'rgba(255,255,255,0.2)',
+                            }}
+                          >
+                            {participant.initials}
+                          </div>
+                          <span
+                            className="participant-name"
+                            style={{
+                              color: '#fff',
+                            }}
+                          >
+                            {participant.name}
+                          </span>
                         </div>
-                        <span
-                          className="participant-name"
-                          style={{
-                            color: '#fff',
-                          }}
-                        >
-                          {participant.name}
-                        </span>
-                      </div>
 
-                      {/* Flex mode: ratio badge - click to cycle (hidden when pinned) */}
-                      {flexMode && pinnedIndex === null && (
-                        <button
-                          className="ratio-badge"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            cycleParticipantRatio(participant.id)
-                          }}
-                          style={{
-                            position: 'absolute',
-                            bottom: 6,
-                            right: 6,
-                            background: 'rgba(0,0,0,0.6)',
-                            color: '#fff',
-                            border: '1px solid rgba(255,255,255,0.3)',
-                            borderRadius: '6px',
-                            padding: '2px 8px',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            backdropFilter: 'blur(4px)',
-                          }}
-                          title="Click to change aspect ratio"
-                        >
-                          {participantRatios[participant.id] || '16:9'}
-                        </button>
-                      )}
+                        {/* Flex mode: ratio badge - click to cycle (hidden when pinned) */}
+                        {flexMode && pinnedIndex === null && (
+                          <button
+                            className="ratio-badge"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              cycleParticipantRatio(participant.id)
+                            }}
+                            style={{
+                              position: 'absolute',
+                              bottom: 6,
+                              right: 6,
+                              background: 'rgba(0,0,0,0.6)',
+                              color: '#fff',
+                              border: '1px solid rgba(255,255,255,0.3)',
+                              borderRadius: '6px',
+                              padding: '2px 8px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              backdropFilter: 'blur(4px)',
+                            }}
+                            title="Click to change aspect ratio"
+                          >
+                            {participantRatios[participant.id] || '16:9'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 }}
