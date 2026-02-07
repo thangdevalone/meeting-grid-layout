@@ -535,48 +535,70 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
   if (isVertical) {
     // Others on top/bottom — find best row configuration
     const areaW = W - gap * 2
-
-    // Use container-proportional ratio for others on mobile portrait, else global ratio
     const isMobilePin = W < 500
-    const othersRatio = isPortrait ? (isMobilePin ? (W / 2) / (H / 3) : 1) : ratio
 
-    // Search for best layout
-    let bestOthersH = 0
-    let bestThumbArea = 0
-    const maxRows = Math.min(3, visibleOthers || 1)
-    // On small mobile, allow others area up to 60% so 2x2 fits
-    const maxOthersRatio = isMobilePin ? 0.6 : 0.5
+    if (isMobilePin && isPortrait && visibleOthers > 0) {
+      // Mobile portrait pin: ITEMS-FIRST approach
+      // Calculate thumbs at full width with correct ratio, then size area to fit
+      const mobileCols = Math.min(visibleOthers, 2)
+      const mobileRows = Math.ceil(visibleOthers / mobileCols)
+      let thumbW = (areaW - (mobileCols - 1) * gap) / mobileCols
+      let thumbH = thumbW * ratio
 
-    for (let rows = 1; rows <= maxRows; rows++) {
-      const cols = Math.ceil((visibleOthers || 1) / rows)
-      const thumbW = (areaW - (cols - 1) * gap) / cols
-      const thumbH = thumbW * othersRatio
-      const requiredH = rows * thumbH + (rows - 1) * gap + gap * 2
+      // Required area to fit these items
+      let neededH = mobileRows * thumbH + (mobileRows - 1) * gap + gap
 
-      const areaRatio = requiredH / H
-      if (areaRatio > maxOthersRatio) continue // Others area limit
-      if (thumbH < 40) continue // Minimum thumb height
-
-      const thumbArea = thumbW * thumbH
-      if (thumbArea > bestThumbArea) {
-        bestThumbArea = thumbArea
-        bestOthersH = requiredH
+      // Cap: others can take at most 70% — pin still gets at least 30%
+      const maxOthersH = H * 0.7
+      if (neededH > maxOthersH) {
+        neededH = maxOthersH
+        // Recalculate thumb size to fit within capped area
+        const availThumbH = (neededH - (mobileRows - 1) * gap - gap * 2) / mobileRows
+        thumbH = availThumbH
+        thumbW = thumbH / ratio
       }
+
+      othersAreaHeight = neededH
+      othersAreaWidth = areaW
+    } else {
+      // Non-mobile or landscape: search for best layout
+      const othersRatio = isPortrait ? 1 : ratio
+
+      let bestOthersH = 0
+      let bestThumbArea = 0
+      const maxRows = Math.min(3, visibleOthers || 1)
+      const maxOthersRatio = 0.5
+
+      for (let rows = 1; rows <= maxRows; rows++) {
+        const cols = Math.ceil((visibleOthers || 1) / rows)
+        const thumbW = (areaW - (cols - 1) * gap) / cols
+        const thumbH = thumbW * othersRatio
+        const requiredH = rows * thumbH + (rows - 1) * gap + gap
+
+        const areaRatio = requiredH / H
+        if (areaRatio > maxOthersRatio) continue
+        if (thumbH < 40) continue
+
+        const thumbArea = thumbW * thumbH
+        if (thumbArea > bestThumbArea) {
+          bestThumbArea = thumbArea
+          bestOthersH = requiredH
+        }
+      }
+
+      if (bestOthersH === 0) {
+        bestOthersH = H * (isPortrait ? 0.25 : 0.2)
+      }
+
+      const minRatio = 0.12
+      const maxRatio = 0.45
+      if (bestOthersH / H < minRatio) bestOthersH = H * minRatio
+      else if (bestOthersH / H > maxRatio) bestOthersH = H * maxRatio
+
+      othersAreaHeight = bestOthersH
+      othersAreaWidth = areaW
     }
 
-    // Fallback
-    if (bestOthersH === 0) {
-      bestOthersH = H * (isPortrait ? 0.25 : 0.2)
-    }
-
-    // Clamp
-    const minRatio = 0.12
-    const maxRatio = 0.45
-    if (bestOthersH / H < minRatio) bestOthersH = H * minRatio
-    else if (bestOthersH / H > maxRatio) bestOthersH = H * maxRatio
-
-    othersAreaHeight = bestOthersH
-    othersAreaWidth = areaW
     mainHeight = H - othersAreaHeight - gap * 3
     mainWidth = areaW
   } else {
@@ -644,9 +666,8 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
 
   // Layout others with uniform grid inside their area
   {
-    // Use container-proportional ratio for others on mobile portrait
     const isMobileOthers = W < 500
-    const othersRatio = isPortrait ? (isMobileOthers ? (W / 2) / (H / 3) : 1) : ratio
+    const othersRatio = isPortrait ? 1 : ratio
 
     let thumbCols = 1
     let thumbRows = 1
@@ -656,11 +677,17 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
     if (visibleOthers > 0) {
       if (isVertical) {
         if (isMobileOthers && isPortrait) {
-          // Mobile: fill stretch — compute cols/rows to fill the area, then stretch items
-          thumbCols = Math.min(visibleOthers, 2) // Max 2 cols on mobile
+          // Mobile: items fill width, respect aspect ratio
+          thumbCols = Math.min(visibleOthers, 2)
           thumbRows = Math.ceil(visibleOthers / thumbCols)
-          thumbWidth = (othersAreaWidth - (thumbCols - 1) * gap) / thumbCols
-          thumbHeight = (othersAreaHeight - (thumbRows - 1) * gap - gap) / thumbRows
+          const maxW = (othersAreaWidth - (thumbCols - 1) * gap) / thumbCols
+          const maxH = (othersAreaHeight - (thumbRows - 1) * gap - gap) / thumbRows
+          thumbWidth = maxW
+          thumbHeight = thumbWidth * ratio
+          if (thumbHeight > maxH) {
+            thumbHeight = maxH
+            thumbWidth = thumbHeight / ratio
+          }
         } else {
           // Normal: search for best layout maintaining ratio
           let bestScore = -1

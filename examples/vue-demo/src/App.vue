@@ -278,6 +278,11 @@ const floatingParticipant = computed(() => participants.value[floatingIndex.valu
 const pinnedParticipant = computed(() =>
   pinnedIndex.value !== null ? participants.value[pinnedIndex.value] : null
 )
+
+// Zoom mode: 'auto' aspect ratio for pinned participant so it fills entire container
+const zoomItemAspectRatios = computed(() =>
+  participants.value.map((_, i) => (i === pinnedIndex.value ? 'auto' : '16:9'))
+)
 </script>
 
 <template>
@@ -464,6 +469,7 @@ const pinnedParticipant = computed(() =>
         :pinned-index="pinnedIndex ?? undefined"
         :count="participants.length"
         spring-preset="smooth"
+        :item-aspect-ratios="zoomItemAspectRatios"
       >
         <!-- Only render the pinned participant -->
         <GridItem v-for="(participant, index) in participants" :key="participant.id" :index="index">

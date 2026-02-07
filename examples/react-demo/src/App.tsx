@@ -456,6 +456,7 @@ export default function App() {
             pinnedIndex={pinnedIndex}
             count={participants.length}
             springPreset="smooth"
+            itemAspectRatios={participants.map((_, i) => (i === pinnedIndex ? 'auto' : '16:9'))}
           >
             {/* Pinned participant fills the screen */}
             {participants.map((participant, index) => {
