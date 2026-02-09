@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <img src="https://img.shields.io/npm/v/@thangdevalone/meet-layout-grid-core?color=blue&label=core" alt="npm core" />
   <img src="https://img.shields.io/npm/v/@thangdevalone/meet-layout-grid-react?color=blue&label=react" alt="npm react" />
   <img src="https://img.shields.io/npm/v/@thangdevalone/meet-layout-grid-vue?color=blue&label=vue" alt="npm vue" />
@@ -281,6 +281,79 @@ import { FloatingGridItem } from '@thangdevalone/meet-layout-grid-react'
 
 ---
 
+## Responsive PiP
+
+PiP supports **responsive breakpoints** that auto-adjust size based on container width. You can use the built-in defaults or define your own custom breakpoints.
+
+### Using Default Breakpoints
+
+```tsx
+import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
+
+// Standalone FloatingGridItem — auto-responsive with 5 levels
+<FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
+  <VideoTile />
+</FloatingGridItem>
+
+// Auto-float in 2-person mode — responsive PiP via GridContainer
+<GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
+  {participants.map((p, i) => (
+    <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
+  ))}
+</GridContainer>
+```
+
+**Default breakpoints (`DEFAULT_FLOAT_BREAKPOINTS`):**
+
+| Level          | Container Width | PiP Size    |
+| -------------- | --------------- | ----------- |
+| Small mobile   | 0 – 479px       | 100 × 135   |
+| Mobile/Tablet  | 480 – 767px     | 130 × 175   |
+| Tablet         | 768 – 1023px    | 160 × 215   |
+| Desktop        | 1024 – 1439px   | 180 × 240   |
+| Large Desktop  | 1440px+         | 220 × 295   |
+
+### Custom Breakpoints
+
+Define your own breakpoints with `PipBreakpoint[]`:
+
+```tsx
+import { FloatingGridItem } from '@thangdevalone/meet-layout-grid-react'
+import type { PipBreakpoint } from '@thangdevalone/meet-layout-grid-react'
+
+const myBreakpoints: PipBreakpoint[] = [
+  { minWidth: 0, width: 80, height: 110 },       // Small screens
+  { minWidth: 600, width: 150, height: 200 },     // Medium screens
+  { minWidth: 1200, width: 250, height: 330 },    // Large screens
+]
+
+// Standalone FloatingGridItem
+<FloatingGridItem breakpoints={myBreakpoints}>
+  <VideoTile />
+</FloatingGridItem>
+
+// Auto-float in 2-person mode
+<GridContainer count={2} floatBreakpoints={myBreakpoints}>
+  ...
+</GridContainer>
+```
+
+### Utility: `resolveFloatSize`
+
+Programmatically resolve the PiP size for a given container width:
+
+```ts
+import { resolveFloatSize, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
+
+const size = resolveFloatSize(800, DEFAULT_FLOAT_BREAKPOINTS)
+// → { width: 160, height: 215 }  (tablet breakpoint)
+```
+
+> **Note:** Fixed `width`/`height` props always override breakpoints when both are provided.
+> The `breakpoints` system matches the largest `minWidth` that is ≤ the current container width.
+
+---
+
 ## Grid Overlay
 
 Full-grid overlay for screen sharing, whiteboard, or other content:
@@ -332,6 +405,9 @@ import { GridOverlay } from '@thangdevalone/meet-layout-grid-react'
 | `maxVisible`         | `number`                                 | `0`         | Max visible items (pin mode "others") |
 | `currentVisiblePage` | `number`                                 | `0`         | Current page for visible items        |
 | `itemAspectRatios`   | `(ItemAspectRatio \| undefined)[]`       | -           | Per-item aspect ratios                |
+| `floatWidth`         | `number`                                 | `120`       | Width of the auto-float PiP (2-person mode). Overrides breakpoints.  |
+| `floatHeight`        | `number`                                 | `160`       | Height of the auto-float PiP (2-person mode). Overrides breakpoints. |
+| `floatBreakpoints`   | `PipBreakpoint[]`                        | -           | Responsive breakpoints for auto-float PiP (see [Responsive PiP](#responsive-pip)) |
 
 ### `MeetGridResult`
 
@@ -365,6 +441,67 @@ import { GridOverlay } from '@thangdevalone/meet-layout-grid-react'
 | `height`     | `number` | Content height                  |
 | `offsetTop`  | `number` | Vertical offset for centering   |
 | `offsetLeft` | `number` | Horizontal offset for centering |
+
+### `FloatingGridItem` Props
+
+Standalone draggable PiP component for custom floating items (independent of the auto-float in 2-person mode).
+
+| Prop              | Type                                                         | Default                          | Description                                      |
+| ----------------- | ------------------------------------------------------------ | -------------------------------- | ------------------------------------------------ |
+| `children`        | `ReactNode`                                                  | required                         | Content to render inside the floating item        |
+| `width`           | `number`                                                     | `120`                            | Width of the floating item (px). Overridden by `breakpoints`. |
+| `height`          | `number`                                                     | `160`                            | Height of the floating item (px). Overridden by `breakpoints`. |
+| `breakpoints`     | `PipBreakpoint[]`                                            | -                                | Responsive breakpoints (see [Responsive PiP](#responsive-pip)) |
+| `initialPosition` | `{ x: number; y: number }`                                   | `{ x: 16, y: 16 }`              | Extra offset from anchor corner                   |
+| `anchor`          | `'top-left' \| 'top-right' \| 'bottom-left' \| 'bottom-right'` | `'bottom-right'`                 | Which corner to snap/anchor the item              |
+| `visible`         | `boolean`                                                    | `true`                           | Whether the floating item is visible              |
+| `edgePadding`     | `number`                                                     | `12`                             | Minimum padding from container edges (px)         |
+| `onAnchorChange`  | `(anchor) => void`                                           | -                                | Callback when anchor corner changes after drag    |
+| `transition`      | `Transition`                                                 | `spring (stiffness 400, damping 30)` | Custom Motion transition for snap animation   |
+| `borderRadius`    | `number`                                                     | `12`                             | Border radius of the floating item (px)           |
+| `boxShadow`       | `string`                                                     | `'0 4px 20px rgba(0,0,0,0.3)'`  | CSS box-shadow of the floating item               |
+| `className`       | `string`                                                     | -                                | Additional CSS class name                         |
+| `style`           | `CSSProperties`                                              | -                                | Custom style (merged with floating styles)        |
+
+#### Resize PiP
+
+**Fixed size** — pass `width` and `height` directly:
+
+```tsx
+<FloatingGridItem width={200} height={270}>
+  <VideoTile />
+</FloatingGridItem>
+```
+
+**Responsive size** — use `breakpoints` to auto-adjust (see [Responsive PiP](#responsive-pip)):
+
+```tsx
+import { DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
+
+<FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
+  <VideoTile />
+</FloatingGridItem>
+```
+
+For the **auto-float PiP** in 2-person mode, use `floatBreakpoints` on `GridContainer`:
+
+```tsx
+<GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
+  {participants.map((p, i) => (
+    <GridItem key={p.id} index={i}>
+      <VideoTile participant={p} />
+    </GridItem>
+  ))}
+</GridContainer>
+```
+
+### `GridOverlay` Props
+
+| Prop              | Type     | Default                | Description                    |
+| ----------------- | -------- | ---------------------- | ------------------------------ |
+| `visible`         | `boolean`| `true`                 | Whether to show the overlay    |
+| `backgroundColor` | `string` | `'rgba(0,0,0,0.5)'`   | Overlay background color       |
+| `children`        | `ReactNode` | -                   | Content inside the overlay     |
 
 ---
 

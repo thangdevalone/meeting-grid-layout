@@ -86,14 +86,32 @@ export interface MeetGridOptions extends GridOptions {
   itemAspectRatios?: (ItemAspectRatio | undefined)[]
   /**
    * Custom width for the floating PiP item in 2-person mode.
-   * Overrides the default responsive size (mobile: 90, desktop: 130).
+   * When set, overrides the width resolved from floatBreakpoints.
    */
   floatWidth?: number
   /**
    * Custom height for the floating PiP item in 2-person mode.
-   * Overrides the default responsive size (mobile: 120, desktop: 175).
+   * When set, overrides the height resolved from floatBreakpoints.
    */
   floatHeight?: number
+  /**
+   * Responsive breakpoints for the floating PiP in 2-person mode.
+   * When provided, PiP size auto-adjusts based on container width.
+   * Use `DEFAULT_FLOAT_BREAKPOINTS` as a starting point or define your own.
+   * `floatWidth`/`floatHeight` still override the resolved size when set.
+   *
+   * @example
+   * // Use default 5-level responsive breakpoints
+   * floatBreakpoints: DEFAULT_FLOAT_BREAKPOINTS
+   *
+   * // Custom breakpoints
+   * floatBreakpoints: [
+   *   { minWidth: 0, width: 80, height: 110 },
+   *   { minWidth: 600, width: 150, height: 200 },
+   *   { minWidth: 1200, width: 250, height: 330 },
+   * ]
+   */
+  floatBreakpoints?: PipBreakpoint[]
 }
 
 /**
@@ -138,6 +156,73 @@ export interface ContentDimensions extends GridDimensions {
   offsetTop: number
   /** Offset from cell left to center the content */
   offsetLeft: number
+}
+
+/**
+ * Responsive breakpoint configuration for PiP sizing.
+ * The system selects the breakpoint with the largest `minWidth` that is <= container width.
+ *
+ * @example
+ * // Custom breakpoints
+ * const breakpoints: PipBreakpoint[] = [
+ *   { minWidth: 0, width: 80, height: 110 },      // Small mobile
+ *   { minWidth: 480, width: 120, height: 160 },    // Mobile
+ *   { minWidth: 768, width: 160, height: 215 },    // Tablet
+ *   { minWidth: 1024, width: 200, height: 270 },   // Desktop
+ * ]
+ */
+export interface PipBreakpoint {
+  /** Minimum container width (px) for this breakpoint to apply */
+  minWidth: number
+  /** PiP width at this breakpoint (px) */
+  width: number
+  /** PiP height at this breakpoint (px) */
+  height: number
+}
+
+/**
+ * Default responsive breakpoints for PiP sizing.
+ * Provides 5 levels from small mobile to large desktop.
+ *
+ * | Breakpoint     | Container Width | PiP Size   |
+ * | -------------- | --------------- | ---------- |
+ * | Small mobile   | 0 – 479px       | 100 × 135  |
+ * | Mobile/Tablet  | 480 – 767px     | 130 × 175  |
+ * | Tablet         | 768 – 1023px    | 160 × 215  |
+ * | Desktop        | 1024 – 1439px   | 180 × 240  |
+ * | Large Desktop  | 1440px+         | 220 × 295  |
+ */
+export const DEFAULT_FLOAT_BREAKPOINTS: PipBreakpoint[] = [
+  { minWidth: 0, width: 100, height: 135 },
+  { minWidth: 480, width: 130, height: 175 },
+  { minWidth: 768, width: 160, height: 215 },
+  { minWidth: 1024, width: 180, height: 240 },
+  { minWidth: 1440, width: 220, height: 295 },
+]
+
+/**
+ * Resolve PiP size from responsive breakpoints based on container width.
+ * Selects the breakpoint with the largest `minWidth` that is <= `containerWidth`.
+ *
+ * @param containerWidth - Current container width in pixels
+ * @param breakpoints - Array of PipBreakpoint configurations
+ * @returns Resolved { width, height } for the PiP
+ */
+export function resolveFloatSize(
+  containerWidth: number,
+  breakpoints: PipBreakpoint[]
+): GridDimensions {
+  // Sort descending by minWidth to find the best (largest) match first
+  const sorted = [...breakpoints].sort((a, b) => b.minWidth - a.minWidth)
+  const match = sorted.find((bp) => containerWidth >= bp.minWidth)
+  if (match) {
+    return { width: match.width, height: match.height }
+  }
+  // Fallback to smallest breakpoint
+  const smallest = sorted[sorted.length - 1]
+  return smallest
+    ? { width: smallest.width, height: smallest.height }
+    : { width: 120, height: 160 }
 }
 
 /**
@@ -1262,10 +1347,18 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
         const mainWidth = W
         const mainHeight = H
 
-        // Float PiP dimensions — use custom size if provided, else responsive defaults
-        const isMobileSize = W < 500
-        const floatW = options.floatWidth ?? (isMobileSize ? 130 : 180)
-        const floatH = options.floatHeight ?? (isMobileSize ? 175 : 240)
+        // Float PiP dimensions — priority: floatWidth/Height > floatBreakpoints > legacy default
+        let floatW: number
+        let floatH: number
+        if (options.floatBreakpoints) {
+          const resolved = resolveFloatSize(W, options.floatBreakpoints)
+          floatW = options.floatWidth ?? resolved.width
+          floatH = options.floatHeight ?? resolved.height
+        } else {
+          const isMobileSize = W < 500
+          floatW = options.floatWidth ?? (isMobileSize ? 130 : 180)
+          floatH = options.floatHeight ?? (isMobileSize ? 175 : 240)
+        }
 
         const pagination = createDefaultPagination(2)
         const getItemDimensions = (index: number) =>
