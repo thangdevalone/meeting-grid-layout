@@ -597,7 +597,7 @@ const zoomItemAspectRatios = computed(() =>
           v-for="(participant, index) in participants"
           :key="participant.id"
           :index="index"
-          v-slot="{ isLastVisibleOther, hiddenCount }"
+          v-slot="{ isLastVisibleOther, hiddenCount, isFloat: itemIsFloat }"
         >
           <!-- +N MORE indicator only when pagination is OFF -->
           <div
@@ -633,6 +633,68 @@ const zoomItemAspectRatios = computed(() =>
               more
             </span>
           </div>
+
+          <!-- Float PiP item — compact, polished UI -->
+          <div
+            v-else-if="itemIsFloat"
+            class="grid-item float-pip-item"
+            :style="{
+              background: participant.gradient,
+              width: '100%',
+              height: '100%',
+              borderRadius: '14px',
+              border: '2px solid rgba(255,255,255,0.25)',
+              position: 'relative',
+              overflow: 'hidden',
+            }"
+          >
+            <!-- Drag hint badge -->
+            <div
+              :style="{
+                position: 'absolute',
+                top: '6px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '0.65rem',
+                background: 'rgba(0,0,0,0.5)',
+                backdropFilter: 'blur(8px)',
+                padding: '2px 10px',
+                borderRadius: '8px',
+                color: 'rgba(255,255,255,0.85)',
+                fontWeight: 500,
+                letterSpacing: '0.3px',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+              }"
+            >
+              ⠿ Drag
+            </div>
+            <div class="grid-item-content">
+              <div
+                class="avatar"
+                :style="{
+                  background: 'rgba(255,255,255,0.2)',
+                  width: '44px',
+                  height: '44px',
+                  fontSize: '1rem',
+                  backdropFilter: 'blur(4px)',
+                }"
+              >
+                {{ participant.initials }}
+              </div>
+              <span
+                class="participant-name"
+                :style="{
+                  color: '#fff',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  marginTop: '4px',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                }"
+              >{{ participant.name }}</span>
+            </div>
+          </div>
+
           <!-- Normal participant cell -->
           <div
             v-else
