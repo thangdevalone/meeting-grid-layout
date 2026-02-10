@@ -1,6 +1,6 @@
 {
     "name": "@thangdevalone/meeting-grid-layout-react",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "description": "React integration for meeting-grid-layout with Motion animations",
     "type": "module",
     "main": "./dist/index.cjs",
