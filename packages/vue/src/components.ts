@@ -130,6 +130,15 @@ export const GridContainer = defineComponent({
       type: Array as PropType<PipBreakpoint[]>,
       default: undefined,
     },
+    /**
+     * Index of the participant to show as the floating PiP in 2-person mode.
+     * The other participant will fill the main area.
+     * @default 1 (second participant)
+     */
+    pipIndex: {
+      type: Number,
+      default: undefined,
+    },
 
     /** HTML tag to render */
     tag: {
@@ -157,6 +166,7 @@ export const GridContainer = defineComponent({
       floatWidth: props.floatWidth,
       floatHeight: props.floatHeight,
       floatBreakpoints: props.floatBreakpoints,
+      pipIndex: props.pipIndex,
     }))
 
     const grid = useMeetGrid(gridOptions)

@@ -338,45 +338,26 @@ Thắng: 2 hàng [5, 4] → globalScale = min(1.0, 700/680) = 1.0
 
 ## Floating PiP (Picture-in-Picture)
 
-Item nổi kéo thả, snap vào góc:
+Item nổi kéo thả, snap vào góc. Hỗ trợ kích thước cố định hoặc responsive.
 
 ```tsx
-import { FloatingGridItem } from '@thangdevalone/meeting-grid-layout-react'
+import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meeting-grid-layout-react'
 
-;<GridContainer>
+<GridContainer>
   {/* Các grid item chính */}
 
-  <FloatingGridItem
-    width={130}
-    height={175}
-    anchor="bottom-right"
-    visible={true}
-    edgePadding={12}
-    borderRadius={8}
-    onAnchorChange={(anchor) => console.log(anchor)}
-  >
+  {/* Kích thước cố định */}
+  <FloatingGridItem width={130} height={175} anchor="bottom-right">
     <VideoTile participant={floatingParticipant} />
   </FloatingGridItem>
+
+  {/* Responsive — tự điều chỉnh theo chiều rộng container */}
+  <FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
+    <VideoTile />
+  </FloatingGridItem>
 </GridContainer>
-```
 
----
-
-## Responsive PiP
-
-PiP hỗ trợ **responsive breakpoints** tự động điều chỉnh kích thước theo chiều rộng container. Bạn có thể dùng breakpoints mặc định hoặc tự định nghĩa.
-
-### Dùng breakpoints mặc định
-
-```tsx
-import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
-
-// FloatingGridItem độc lập — responsive tự động 5 mức
-<FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
-  <VideoTile />
-</FloatingGridItem>
-
-// Auto-float chế độ 2 người — responsive PiP qua GridContainer
+{/* Auto-float chế độ 2 người */}
 <GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
   {participants.map((p, i) => (
     <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
@@ -384,196 +365,31 @@ import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet
 </GridContainer>
 ```
 
-**Breakpoints mặc định (`DEFAULT_FLOAT_BREAKPOINTS`):**
+### Breakpoints mặc định
 
-| Mức           | Chiều rộng container | Kích thước PiP |
-| ------------- | -------------------- | -------------- |
-| Mobile nhỏ    | 0 – 479px            | 100 × 135      |
-| Mobile/Tablet | 480 – 767px          | 130 × 175      |
-| Tablet        | 768 – 1023px         | 160 × 215      |
-| Desktop       | 1024 – 1439px        | 180 × 240      |
-| Desktop lớn   | 1440px+              | 220 × 295      |
+| Chiều rộng container | Kích thước PiP |
+| -------------------- | -------------- |
+| 0 – 479px            | 100 × 135      |
+| 480 – 767px          | 130 × 175      |
+| 768 – 1023px         | 160 × 215      |
+| 1024 – 1439px        | 180 × 240      |
+| 1440px+              | 220 × 295      |
 
-### Tự định nghĩa breakpoints
-
-Tạo breakpoints riêng với `PipBreakpoint[]`:
+Tự định nghĩa breakpoints với `PipBreakpoint[]`:
 
 ```tsx
-import { FloatingGridItem } from '@thangdevalone/meet-layout-grid-react'
-import type { PipBreakpoint } from '@thangdevalone/meet-layout-grid-react'
-
 const myBreakpoints: PipBreakpoint[] = [
-  { minWidth: 0, width: 80, height: 110 },       // Màn hình nhỏ
-  { minWidth: 600, width: 150, height: 200 },     // Màn hình vừa
-  { minWidth: 1200, width: 250, height: 330 },    // Màn hình lớn
+  { minWidth: 0, width: 80, height: 110 },
+  { minWidth: 600, width: 150, height: 200 },
+  { minWidth: 1200, width: 250, height: 330 },
 ]
 
-// FloatingGridItem độc lập
-<FloatingGridItem breakpoints={myBreakpoints}>
-  <VideoTile />
-</FloatingGridItem>
-
-// Auto-float chế độ 2 người
-<GridContainer count={2} floatBreakpoints={myBreakpoints}>
-  ...
-</GridContainer>
+<FloatingGridItem breakpoints={myBreakpoints}>...</FloatingGridItem>
+// hoặc
+<GridContainer count={2} floatBreakpoints={myBreakpoints}>...</GridContainer>
 ```
 
-### Utility: `resolveFloatSize`
-
-Xác định kích thước PiP lập trình cho chiều rộng container cụ thể:
-
-```ts
-import { resolveFloatSize, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
-
-const size = resolveFloatSize(800, DEFAULT_FLOAT_BREAKPOINTS)
-// → { width: 160, height: 215 }  (breakpoint tablet)
-```
-
-> **Lưu ý:** Props `width`/`height` cố định luôn ghi đè breakpoints khi cả hai được truyền.
-> Hệ thống `breakpoints` chọn breakpoint có `minWidth` lớn nhất mà ≤ chiều rộng container hiện tại.
-
----
-
-## Grid Overlay
-
-Overlay toàn grid cho screen sharing, whiteboard, hoặc nội dung khác:
-
-```tsx
-import { GridOverlay } from '@thangdevalone/meeting-grid-layout-react'
-
-;<GridContainer>
-  {/* Các grid item */}
-
-  <GridOverlay visible={isScreenSharing} backgroundColor="rgba(0,0,0,0.8)">
-    <ScreenShareView />
-  </GridOverlay>
-</GridContainer>
-```
-
----
-
-## Preset animation
-
-| Preset   | Dùng khi              |
-| -------- | --------------------- |
-| `snappy` | Phản hồi nhanh        |
-| `smooth` | Đổi layout (mặc định) |
-| `gentle` | Chuyển động nhẹ       |
-| `bouncy` | Hơi overshoot         |
-
-```tsx
-<GridContainer springPreset="smooth">
-```
-
----
-
-## API Reference
-
-### `createMeetGrid(options): MeetGridResult`
-
-| Option               | Kiểu                                     | Mặc định    | Mô tả                                                                          |
-| -------------------- | ---------------------------------------- | ----------- | ------------------------------------------------------------------------------ |
-| `dimensions`         | `{ width, height }`                      | bắt buộc    | Kích thước container (px)                                                      |
-| `count`              | `number`                                 | bắt buộc    | Số item                                                                        |
-| `aspectRatio`        | `string`                                 | `'16:9'`    | Tỉ lệ tile mặc định                                                            |
-| `gap`                | `number`                                 | `8`         | Khoảng cách giữa tile (px)                                                     |
-| `layoutMode`         | `'gallery' \| 'spotlight'`               | `'gallery'` | Chế độ layout                                                                  |
-| `pinnedIndex`        | `number`                                 | -           | Index của participant được ghim                                                |
-| `othersPosition`     | `'left' \| 'right' \| 'top' \| 'bottom'` | `'right'`   | Vị trí thumbnail khi ghim                                                      |
-| `maxItemsPerPage`    | `number`                                 | `0`         | Số item tối đa mỗi trang                                                       |
-| `currentPage`        | `number`                                 | `0`         | Trang hiện tại (0-based)                                                       |
-| `maxVisible`         | `number`                                 | `0`         | Số item hiển thị tối đa (vùng others)                                          |
-| `currentVisiblePage` | `number`                                 | `0`         | Trang hiện tại cho visible items                                               |
-| `itemAspectRatios`   | `(ItemAspectRatio \| undefined)[]`       | -           | Tỉ lệ riêng cho từng item                                                      |
-| `floatWidth`         | `number`                                 | `120`       | Chiều rộng PiP tự động (chế độ 2 người). Ghi đè breakpoints.                   |
-| `floatHeight`        | `number`                                 | `160`       | Chiều cao PiP tự động (chế độ 2 người). Ghi đè breakpoints.                    |
-| `floatBreakpoints`   | `PipBreakpoint[]`                        | -           | Breakpoints responsive cho PiP tự động (xem [Responsive PiP](#responsive-pip)) |
-
-### `MeetGridResult`
-
-| Method / Property                         | Trả về              | Mô tả                                    |
-| ----------------------------------------- | ------------------- | ---------------------------------------- |
-| `getPosition(index)`                      | `{ top, left }`     | Vị trí của item                          |
-| `getItemDimensions(index)`                | `{ width, height }` | Kích thước cell                          |
-| `getItemContentDimensions(index, ratio?)` | `ContentDimensions` | Kích thước content thực tế với offset    |
-| `isItemVisible(index)`                    | `boolean`           | Item có hiển thị trên trang hiện tại     |
-| `isMainItem(index)`                       | `boolean`           | Item có phải là item chính (pinned)      |
-| `getLastVisibleOthersIndex()`             | `number`            | Index item cuối cùng hiển thị ở "others" |
-| `hiddenCount`                             | `number`            | Số item bị ẩn (cho "+N thêm")            |
-| `pagination`                              | `PaginationInfo`    | Thông tin phân trang                     |
-
-### `PaginationInfo`
-
-| Property      | Kiểu      | Mô tả                       |
-| ------------- | --------- | --------------------------- |
-| `enabled`     | `boolean` | Phân trang có bật không     |
-| `currentPage` | `number`  | Index trang hiện tại        |
-| `totalPages`  | `number`  | Tổng số trang               |
-| `itemsOnPage` | `number`  | Số item trên trang hiện tại |
-| `startIndex`  | `number`  | Index bắt đầu của trang     |
-| `endIndex`    | `number`  | Index kết thúc của trang    |
-
-### `ContentDimensions`
-
-| Property     | Kiểu     | Mô tả                    |
-| ------------ | -------- | ------------------------ |
-| `width`      | `number` | Chiều rộng content       |
-| `height`     | `number` | Chiều cao content        |
-| `offsetTop`  | `number` | Offset dọc để căn giữa   |
-| `offsetLeft` | `number` | Offset ngang để căn giữa |
-
-### Props của `FloatingGridItem`
-
-Component PiP kéo thả độc lập (không phải PiP tự động trong chế độ 2 người).
-
-| Prop              | Kiểu                                                           | Mặc định                             | Mô tả                                                          |
-| ----------------- | -------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------- |
-| `children`        | `ReactNode` / `slot`                                           | bắt buộc                             | Nội dung bên trong PiP                                         |
-| `width`           | `number`                                                       | `120`                                | Chiều rộng PiP (px). Bị ghi đè bởi `breakpoints`.              |
-| `height`          | `number`                                                       | `160`                                | Chiều cao PiP (px). Bị ghi đè bởi `breakpoints`.               |
-| `breakpoints`     | `PipBreakpoint[]`                                              | -                                    | Breakpoints responsive (xem [Responsive PiP](#responsive-pip)) |
-| `initialPosition` | `{ x: number; y: number }`                                     | `{ x: 16, y: 16 }`                   | Offset thêm từ góc neo                                         |
-| `anchor`          | `'top-left' \| 'top-right' \| 'bottom-left' \| 'bottom-right'` | `'bottom-right'`                     | Góc neo/snap cho PiP                                           |
-| `visible`         | `boolean`                                                      | `true`                               | Hiển thị PiP hay không                                         |
-| `edgePadding`     | `number`                                                       | `12`                                 | Khoảng cách tối thiểu từ viền container (px)                   |
-| `onAnchorChange`  | `(anchor) => void` / `@anchor-change`                          | -                                    | Callback khi góc neo thay đổi sau khi kéo thả                  |
-| `transition`      | `Transition`                                                   | `spring (stiffness 400, damping 30)` | Transition tùy chỉnh cho animation snap                        |
-| `borderRadius`    | `number`                                                       | `12`                                 | Bo góc PiP (px)                                                |
-| `boxShadow`       | `string`                                                       | `'0 4px 20px rgba(0,0,0,0.3)'`       | CSS box-shadow của PiP                                         |
-| `className`       | `string`                                                       | -                                    | Class CSS bổ sung                                              |
-| `style`           | `CSSProperties`                                                | -                                    | Style tùy chỉnh (merge với style mặc định)                     |
-
-#### Chỉnh kích thước PiP
-
-**Kích thước cố định** — truyền `width` và `height` trực tiếp:
-
-```tsx
-<FloatingGridItem width={200} height={270}>
-  <VideoTile />
-</FloatingGridItem>
-```
-
-**Kích thước responsive** — dùng `breakpoints` tự động điều chỉnh (xem [Responsive PiP](#responsive-pip)):
-
-```tsx
-import { DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
-;<FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
-  <VideoTile />
-</FloatingGridItem>
-```
-
-Với **PiP tự động** chế độ 2 người, dùng `floatBreakpoints` trên `GridContainer`:
-
-```tsx
-<GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
-  {participants.map((p, i) => (
-    <GridItem key={p.id} index={i}>
-      <VideoTile participant={p} />
-    </GridItem>
-  ))}
-</GridContainer>
-```
+> **Lưu ý:** Props `width`/`height` cố định ghi đè breakpoints. Hệ thống chọn breakpoint có `minWidth` lớn nhất mà ≤ chiều rộng container.
 
 ### Props của `GridOverlay`
 

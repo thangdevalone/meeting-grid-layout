@@ -83,6 +83,7 @@ export default function App() {
   const [zoomMode, setZoomMode] = useState(false)
   const [floatingIndex, setFloatingIndex] = useState(0)
   const [flexMode, setFlexMode] = useState(false)
+  const [pipIndex, setPipIndex] = useState(1)
 
   // Responsive floating size
   const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 768px)').matches)
@@ -441,6 +442,24 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* PiP Index (for 2-person mode) */}
+          {layoutMode === 'gallery' && participants.length === 2 && pinnedIndex === null && (
+            <div className="control-group">
+              <span className="control-label">PiP</span>
+              <div className="control-buttons">
+                {participants.map((p, i) => (
+                  <button
+                    key={i}
+                    className={`btn ${pipIndex === i ? 'active' : ''}`}
+                    onClick={() => setPipIndex(i)}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -601,6 +620,7 @@ export default function App() {
                   : 0
             }
             currentVisiblePage={othersPage}
+            pipIndex={pipIndex}
           >
             {participants.map((participant, index) => (
               <GridItem key={participant.id} index={index}>

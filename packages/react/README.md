@@ -100,17 +100,17 @@ Full-grid overlay for screen sharing, whiteboard, etc.
 
 ## Responsive PiP
 
-PiP supports responsive breakpoints that auto-adjust size based on container width.
+PiP auto-adjusts size based on container width via breakpoints:
 
 ```tsx
-import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
+import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meeting-grid-layout-react'
 
-// Standalone FloatingGridItem — auto-responsive
+// Standalone — auto-responsive
 <FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
   <VideoTile />
 </FloatingGridItem>
 
-// Auto-float in 2-person mode — responsive PiP via GridContainer
+// Auto-float in 2-person mode
 <GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
   {participants.map((p, i) => (
     <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
@@ -118,16 +118,7 @@ import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet
 </GridContainer>
 ```
 
-Resolve PiP size programmatically:
-
-```ts
-import { resolveFloatSize, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet-layout-grid-react'
-
-const size = resolveFloatSize(800, DEFAULT_FLOAT_BREAKPOINTS)
-// → { width: 160, height: 215 }
-```
-
-> See the [main README](https://github.com/thangdevalone/meet-layout-grid#responsive-pip) for full details, default breakpoint table, and custom breakpoint examples.
+> See the [main README](https://github.com/thangdevalone/meeting-grid-layout#floating-pip-picture-in-picture) for default breakpoint table, custom breakpoints, and `resolveFloatSize` utility.
 
 ## Hooks
 

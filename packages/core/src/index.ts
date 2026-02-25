@@ -112,6 +112,12 @@ export interface MeetGridOptions extends GridOptions {
    * ]
    */
   floatBreakpoints?: PipBreakpoint[]
+  /**
+   * Index of the participant to show as the floating PiP in 2-person mode.
+   * The other participant will fill the main area.
+   * @default 1 (second participant)
+   */
+  pipIndex?: number
 }
 
 /**
@@ -736,7 +742,7 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
 
     othersAreaWidth = bestOthersW
     othersAreaHeight = areaH
-    mainWidth = W - othersAreaWidth - gap * 2
+    mainWidth = W - othersAreaWidth - gap * 3
     mainHeight = areaH
   }
 
@@ -1145,13 +1151,13 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
     maxItemsPerPage && maxItemsPerPage > 0
       ? createPaginationInfo(count, maxItemsPerPage, currentPage)
       : {
-          enabled: false,
-          currentPage: 0,
-          totalPages: 1,
-          itemsOnPage: visibleCount,
-          startIndex,
-          endIndex,
-        }
+        enabled: false,
+        currentPage: 0,
+        totalPages: 1,
+        itemsOnPage: visibleCount,
+        startIndex,
+        endIndex,
+      }
 
   // Slice to only visible items for layout
   const visibleIndices: number[] = []
@@ -1347,10 +1353,16 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
       }
 
       // 2-person mode: Zoom-style float layout
-      // Person 0 fills entire container edge-to-edge (like zoom mode with gap=0)
-      // Person 1 becomes draggable floating PiP
+      // One person fills entire container edge-to-edge (like zoom mode with gap=0)
+      // The other becomes draggable floating PiP (controlled by pipIndex)
       if (count === 2) {
         const { width: W, height: H } = options.dimensions
+
+        // Determine which index is float and which is main
+        const floatIdx = options.pipIndex !== undefined && options.pipIndex >= 0 && options.pipIndex < 2
+          ? options.pipIndex
+          : 1
+        const mainIdx = floatIdx === 0 ? 1 : 0
 
         // Main person fills ENTIRE container — no gap, edge-to-edge (matches zoom mode)
         const mainWidth = W
@@ -1371,7 +1383,7 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
 
         const pagination = createDefaultPagination(2)
         const getItemDimensions = (index: number) =>
-          index === 0 ? { width: mainWidth, height: mainHeight } : { width: floatW, height: floatH }
+          index === mainIdx ? { width: mainWidth, height: mainHeight } : { width: floatW, height: floatH }
 
         return {
           width: mainWidth,
@@ -1380,9 +1392,9 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
           cols: 1,
           layoutMode: 'gallery' as LayoutMode,
           getPosition: (index: number) =>
-            index === 0 ? { top: 0, left: 0 } : { top: -9999, left: -9999 },
+            index === mainIdx ? { top: 0, left: 0 } : { top: -9999, left: -9999 },
           getItemDimensions,
-          isMainItem: (index: number) => index === 0,
+          isMainItem: (index: number) => index === mainIdx,
           pagination,
           isItemVisible: () => true,
           hiddenCount: 0,
@@ -1392,7 +1404,7 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
             options.itemAspectRatios,
             options.aspectRatio
           ),
-          floatIndex: 1,
+          floatIndex: floatIdx,
           floatDimensions: { width: floatW, height: floatH },
         }
       }
@@ -1455,13 +1467,13 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
         maxItemsPerPage && maxItemsPerPage > 0
           ? createPaginationInfo(count, maxItemsPerPage, currentPage)
           : {
-              enabled: false,
-              currentPage: 0,
-              totalPages: 1,
-              itemsOnPage: visibleCount,
-              startIndex,
-              endIndex,
-            }
+            enabled: false,
+            currentPage: 0,
+            totalPages: 1,
+            itemsOnPage: visibleCount,
+            startIndex,
+            endIndex,
+          }
 
       const effectiveCount = visibleCount
 

@@ -7,6 +7,8 @@ import {
   getSpringConfig,
   ItemAspectRatio,
   ContentDimensions,
+  PipBreakpoint,
+  resolveFloatSize,
 } from '@thangdevalone/meeting-grid-layout-core'
 import { useGridDimensions, useMeetGrid, GridContext, useGridContext } from './hooks'
 
@@ -69,6 +71,12 @@ export interface GridContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
    * ]}
    */
   floatBreakpoints?: PipBreakpoint[]
+  /**
+   * Index of the participant to show as the floating PiP in 2-person mode.
+   * The other participant will fill the main area.
+   * @default 1 (second participant)
+   */
+  pipIndex?: number
 }
 
 /**
@@ -95,6 +103,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     floatWidth,
     floatHeight,
     floatBreakpoints,
+    pipIndex,
 
     ...props
   },
@@ -123,6 +132,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     floatWidth,
     floatHeight,
     floatBreakpoints,
+    pipIndex,
   }
 
   const grid = useMeetGrid(gridOptions)
@@ -185,16 +195,16 @@ export interface GridItemProps extends Omit<
    * </GridItem>
    */
   children:
-    | ReactNode
-    | ((props: {
-        contentDimensions: ContentDimensions
-        /** True if this is the last visible item in the "others" section */
-        isLastVisibleOther: boolean
-        /** Number of hidden items (for '+X more' indicator) */
-        hiddenCount: number
-        /** True if this item is rendered as a floating PiP */
-        isFloat: boolean
-      }) => ReactNode)
+  | ReactNode
+  | ((props: {
+    contentDimensions: ContentDimensions
+    /** True if this is the last visible item in the "others" section */
+    isLastVisibleOther: boolean
+    /** Number of hidden items (for '+X more' indicator) */
+    hiddenCount: number
+    /** True if this item is rendered as a floating PiP */
+    isFloat: boolean
+  }) => ReactNode)
   /** Optional item-specific aspect ratio (overrides itemAspectRatios from container) */
   itemAspectRatio?: ItemAspectRatio
   /** Custom transition override */
