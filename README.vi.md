@@ -363,6 +363,13 @@ import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet
     <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
   ))}
 </GridContainer>
+
+{/* Chọn participant nào làm floating PiP */}
+<GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS} pipIndex={0}>
+  {participants.map((p, i) => (
+    <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
+  ))}
+</GridContainer>
 ```
 
 ### Breakpoints mặc định
@@ -390,6 +397,15 @@ const myBreakpoints: PipBreakpoint[] = [
 ```
 
 > **Lưu ý:** Props `width`/`height` cố định ghi đè breakpoints. Hệ thống chọn breakpoint có `minWidth` lớn nhất mà ≤ chiều rộng container.
+
+### `pipIndex` — Chọn participant làm PiP
+
+Trong chế độ 2 người, `pipIndex` chọn participant nào sẽ hiển thị dạng floating PiP (người còn lại chiếm toàn bộ màn hình). Mặc định là `1` (participant thứ 2).
+
+| `pipIndex`     | Chính (toàn màn hình) | Floating PiP    |
+| -------------- | --------------------- | --------------- |
+| `0`            | Participant 1         | Participant 0   |
+| `1` (mặc định) | Participant 0         | Participant 1   |
 
 ### Props của `GridOverlay`
 

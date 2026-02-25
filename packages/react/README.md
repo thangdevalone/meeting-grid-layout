@@ -51,6 +51,7 @@ Wraps the grid, computes layout, and provides context to children.
 | `floatWidth`         | `number`                                  | -           | Width of the auto-float PiP (2-person mode). Overrides breakpoints.  |
 | `floatHeight`        | `number`                                  | -           | Height of the auto-float PiP (2-person mode). Overrides breakpoints. |
 | `floatBreakpoints`   | `PipBreakpoint[]`                         | -           | Responsive breakpoints for auto-float PiP (see [Responsive PiP](#responsive-pip)) |
+| `pipIndex`           | `number`                                  | `1`         | Which participant (0 or 1) is the floating PiP in 2-person mode    |
 
 ### `<GridItem>`
 

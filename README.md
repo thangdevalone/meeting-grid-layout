@@ -363,6 +363,13 @@ import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet
     <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
   ))}
 </GridContainer>
+
+{/* Choose which participant is the floating PiP */}
+<GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS} pipIndex={0}>
+  {participants.map((p, i) => (
+    <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
+  ))}
+</GridContainer>
 ```
 
 ### Default Breakpoints
@@ -390,6 +397,15 @@ const myBreakpoints: PipBreakpoint[] = [
 ```
 
 > **Note:** Fixed `width`/`height` props override breakpoints. The system matches the largest `minWidth ≤ container width`.
+
+### `pipIndex` — Controlling the PiP target
+
+In 2-person mode, `pipIndex` selects which participant becomes the floating PiP (the other fills the main area). Defaults to `1` (second participant).
+
+| `pipIndex` | Main (full-screen) | Floating PiP |
+| ---------- | ------------------ | ------------ |
+| `0`        | Participant 1      | Participant 0 |
+| `1` (default) | Participant 0   | Participant 1 |
 
 ### `GridOverlay` Props
 
