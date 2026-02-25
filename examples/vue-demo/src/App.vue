@@ -78,6 +78,7 @@ const maxVisible = ref(0)
 const zoomMode = ref(false)
 const floatingIndex = ref(0) // Which participant to show as floating (default: "You")
 const flexMode = ref(false)
+const pipIndex = ref(1)
 
 // Responsive floating size
 const isMobile = ref(window.matchMedia('(max-width: 768px)').matches)
@@ -438,6 +439,24 @@ const zoomItemAspectRatios = computed(() =>
           </div>
         </div>
 
+        <!-- PiP Index (for 2-person mode) -->
+        <div
+          v-if="layoutMode === 'gallery' && participants.length === 2 && pinnedIndex === null"
+          class="control-group"
+        >
+          <span class="control-label">PiP</span>
+          <div class="control-buttons">
+            <button
+              v-for="(p, i) in participants"
+              :key="i"
+              :class="['btn', { active: pipIndex === i }]"
+              @click="pipIndex = i"
+            >
+              {{ p.name }}
+            </button>
+          </div>
+        </div>
+
         <!-- Pinned change -->
         <div v-if="showPinnedControl" class="control-group">
           <span class="control-label">Active Pinned</span>
@@ -592,6 +611,7 @@ const zoomItemAspectRatios = computed(() =>
         :current-visible-page="othersPage"
         spring-preset="smooth"
         :item-aspect-ratios="itemAspectRatios"
+        :pip-index="pipIndex"
       >
         <GridItem
           v-for="(participant, index) in participants"
