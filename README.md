@@ -48,7 +48,7 @@
 | **Max Visible + "+N More"** | Limit visible items and show overflow indicator        |
 | **Flexible Aspect Ratios**  | Per-item ratios (phone 9:16, desktop 16:9)             |
 | **Floating PiP**            | Draggable Picture-in-Picture with corner snapping      |
-| **Pin Only Mode**           | Mobile-first pin view with separate pagination         |
+| **Pin Only Mode**           | Mobile/tablet pin view with separate pagination        |
 | **Grid Overlay**            | Full-grid overlay for screen sharing, whiteboard, etc. |
 | **Responsive**              | Adapts to container size with justified packing        |
 | **Framework Support**       | Vanilla JS, React 18+, Vue 3                           |
@@ -180,12 +180,12 @@ When `pinnedIndex` is set, the layout splits into a **Focus Area** (pinned item)
 
 ### Pin Only Mode
 
-On mobile/tablet devices (container width ≤ 768px), `pinOnly` provides a focused experience:
+On mobile/tablet devices (container width ≤ 1024px), `pinOnly` provides a focused experience:
 
 - **Page 0:** Only the pinned participant is shown full-screen
 - **Page 1+:** Other participants are shown in a gallery grid (without pin)
 
-On desktop (width > 768px), the layout behaves as a normal sidebar.
+On desktop (width > 1024px), the layout behaves as a normal sidebar.
 
 ```tsx
 // React

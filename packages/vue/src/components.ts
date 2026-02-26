@@ -140,10 +140,10 @@ export const GridContainer = defineComponent({
       default: undefined,
     },
     /**
-     * Pin-only mode. When enabled with pagination on mobile/tablet (container width <= 768px):
+     * Pin-only mode. When enabled with pagination on mobile/tablet (container width <= 1024px):
      * - Page 0: Only the pinned participant is shown (full screen)
      * - Page 1+: Other participants are shown in gallery grid (without pin)
-     * On desktop (width > 768px), the layout behaves as normal sidebar.
+     * On desktop (width > 1024px), the layout behaves as normal sidebar.
      * @default false
      */
     pinOnly: {

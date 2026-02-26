@@ -48,7 +48,7 @@
 | **Giới hạn hiển thị "+N"** | Giới hạn số item và hiển thị chỉ báo overflow          |
 | **Tỉ lệ linh hoạt**        | Tỉ lệ riêng cho từng item (phone 9:16, desktop 16:9)   |
 | **Floating PiP**           | Picture-in-Picture kéo thả, snap vào góc               |
-| **Chế độ Pin Only**        | View pin mobile-first với phân trang riêng biệt        |
+| **Chế độ Pin Only**        | View pin mobile/tablet với phân trang riêng biệt      |
 | **Grid Overlay**           | Overlay toàn grid cho screen sharing, whiteboard, v.v. |
 | **Responsive**             | Tự động co giãn theo container với justified packing   |
 | **Đa framework**           | Vanilla JS, React 18+, Vue 3                           |
@@ -180,12 +180,12 @@ Khi đặt `pinnedIndex`, layout chia thành **Vùng chính** (item được ghi
 
 ### Chế độ Pin Only
 
-Trên thiết bị di động/tablet (chiều rộng container ≤ 768px), `pinOnly` mang đến trải nghiệm tập trung:
+Trên thiết bị di động/tablet (chiều rộng container ≤ 1024px), `pinOnly` mang đến trải nghiệm tập trung:
 
 - **Trang 0:** Chỉ hiển thị participant được ghim toàn màn hình
 - **Trang 1+:** Các participant khác hiển thị dạng gallery grid (không có pin)
 
-Trên desktop (chiều rộng > 768px), layout hoạt động như sidebar bình thường.
+Trên desktop (chiều rộng > 1024px), layout hoạt động như sidebar bình thường.
 
 ```tsx
 // React
