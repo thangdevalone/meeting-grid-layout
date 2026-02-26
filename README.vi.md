@@ -48,6 +48,7 @@
 | **Giới hạn hiển thị "+N"** | Giới hạn số item và hiển thị chỉ báo overflow          |
 | **Tỉ lệ linh hoạt**        | Tỉ lệ riêng cho từng item (phone 9:16, desktop 16:9)   |
 | **Floating PiP**           | Picture-in-Picture kéo thả, snap vào góc               |
+| **Chế độ Pin Only**        | View pin mobile-first với phân trang riêng biệt        |
 | **Grid Overlay**           | Overlay toàn grid cho screen sharing, whiteboard, v.v. |
 | **Responsive**             | Tự động co giãn theo container với justified packing   |
 | **Đa framework**           | Vanilla JS, React 18+, Vue 3                           |
@@ -176,6 +177,39 @@ Khi đặt `pinnedIndex`, layout chia thành **Vùng chính** (item được ghi
 | `left`           | Thumbnail bên trái                 |
 | `top`            | Thumbnail phía trên (dải ngang)    |
 | `bottom`         | Thumbnail phía dưới (kiểu speaker) |
+
+### Chế độ Pin Only
+
+Trên thiết bị di động/tablet (chiều rộng container ≤ 768px), `pinOnly` mang đến trải nghiệm tập trung:
+
+- **Trang 0:** Chỉ hiển thị participant được ghim toàn màn hình
+- **Trang 1+:** Các participant khác hiển thị dạng gallery grid (không có pin)
+
+Trên desktop (chiều rộng > 768px), layout hoạt động như sidebar bình thường.
+
+```tsx
+// React
+<GridContainer
+  layoutMode="gallery"
+  pinnedIndex={0}
+  maxVisible={4}
+  currentVisiblePage={currentPage}
+  pinOnly={true}
+>
+```
+
+```vue
+<!-- Vue -->
+<GridContainer
+  layout-mode="gallery"
+  :pinned-index="0"
+  :max-visible="4"
+  :current-visible-page="currentPage"
+  :pin-only="true"
+>
+```
+
+> **Lưu ý:** `pinOnly` yêu cầu phân trang (`maxVisible > 0`) để hoạt động. Tổng số trang = 1 (trang pin) + ceil(others / maxVisible).
 
 ---
 
