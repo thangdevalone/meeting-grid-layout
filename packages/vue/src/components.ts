@@ -139,6 +139,17 @@ export const GridContainer = defineComponent({
       type: Number,
       default: undefined,
     },
+    /**
+     * Pin-only mode. When enabled with pagination on mobile/tablet (container width <= 768px):
+     * - Page 0: Only the pinned participant is shown (full screen)
+     * - Page 1+: Other participants are shown in gallery grid (without pin)
+     * On desktop (width > 768px), the layout behaves as normal sidebar.
+     * @default false
+     */
+    pinOnly: {
+      type: Boolean,
+      default: false,
+    },
 
     /** HTML tag to render */
     tag: {
@@ -167,6 +178,7 @@ export const GridContainer = defineComponent({
       floatHeight: props.floatHeight,
       floatBreakpoints: props.floatBreakpoints,
       pipIndex: props.pipIndex,
+      pinOnly: props.pinOnly,
     }))
 
     const grid = useMeetGrid(gridOptions)

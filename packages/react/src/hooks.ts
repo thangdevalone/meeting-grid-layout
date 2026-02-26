@@ -103,6 +103,11 @@ export function useMeetGrid(options: MeetGridOptions): MeetGridResult {
     options.currentPage,
     options.maxVisible,
     options.currentVisiblePage,
+    options.pinOnly,
+    options.pipIndex,
+    options.floatWidth,
+    options.floatHeight,
+    options.floatBreakpoints,
     itemAspectRatiosKey,
   ])
 }

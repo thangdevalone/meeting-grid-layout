@@ -79,6 +79,7 @@ const zoomMode = ref(false)
 const floatingIndex = ref(0) // Which participant to show as floating (default: "You")
 const flexMode = ref(false)
 const pipIndex = ref(1)
+const pinOnly = ref(false)
 
 // Responsive floating size
 const isMobile = ref(window.matchMedia('(max-width: 768px)').matches)
@@ -141,11 +142,16 @@ const othersTotalPages = computed(() =>
     ? Math.ceil(othersCount.value / itemsPerPage.value)
     : 1
 )
-const totalPages = computed(() =>
-  layoutMode.value === 'gallery' && pinnedIndex.value === null
-    ? galleryTotalPages.value
-    : othersTotalPages.value
-)
+const totalPages = computed(() => {
+  if (layoutMode.value === 'gallery' && pinnedIndex.value === null) {
+    return galleryTotalPages.value
+  }
+  // In pinOnly mode, total pages = 1 (pin page) + others pages
+  if (pinOnly.value) {
+    return 1 + othersTotalPages.value
+  }
+  return othersTotalPages.value
+})
 const effectiveCurrentPage = computed(() =>
   layoutMode.value === 'gallery' && pinnedIndex.value === null
     ? currentPage.value
@@ -426,6 +432,19 @@ const zoomItemAspectRatios = computed(() =>
           </div>
         </div>
 
+        <!-- Pin Only mode (gallery with pin + pagination) -->
+        <div v-if="layoutMode === 'gallery' && pinnedIndex !== null && paginationEnabled" class="control-group">
+          <span class="control-label">Pin Only</span>
+          <div class="control-buttons">
+            <button
+              :class="['btn', { active: pinOnly }]"
+              @click="pinOnly = !pinOnly"
+            >
+              {{ pinOnly ? 'On' : 'Off' }}
+            </button>
+          </div>
+        </div>
+
         <!-- Zoom Mode control (gallery only with pin) -->
         <div v-if="layoutMode === 'gallery' && pinnedIndex !== null" class="control-group">
           <span class="control-label">Zoom</span>
@@ -612,6 +631,7 @@ const zoomItemAspectRatios = computed(() =>
         spring-preset="smooth"
         :item-aspect-ratios="itemAspectRatios"
         :pip-index="pipIndex"
+        :pin-only="pinOnly"
       >
         <GridItem
           v-for="(participant, index) in participants"

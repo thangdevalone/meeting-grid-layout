@@ -1,13 +1,13 @@
-import { ref, computed, watch, onMounted, onUnmounted, Ref, ComputedRef } from 'vue'
-import { useResizeObserver } from '@vueuse/core'
 import {
+    createMeetGrid,
+    getSpringConfig,
     GridDimensions,
     MeetGridOptions,
     MeetGridResult,
-    createMeetGrid,
-    getSpringConfig,
     SpringPreset,
 } from '@thangdevalone/meeting-grid-layout-core'
+import { useResizeObserver } from '@vueuse/core'
+import { computed, ComputedRef, onMounted, ref, Ref } from 'vue'
 
 // ============================================
 // Composables
@@ -95,21 +95,11 @@ export function useGridItemPosition(
 
 // Re-export types and utilities from core
 export type {
-    GridDimensions,
-    Position,
-    GridOptions,
-    MeetGridOptions,
-    MeetGridResult,
-    LayoutMode,
-    SpringPreset,
+    GridDimensions, GridOptions, LayoutMode, MeetGridOptions,
+    MeetGridResult, Position, SpringPreset
 } from '@thangdevalone/meeting-grid-layout-core'
 
 export {
-    createGrid,
-    createMeetGrid,
-    getGridItemDimensions,
-    createGridItemPositioner,
-    getSpringConfig,
-    springPresets,
-    getAspectRatio,
+    createGrid, createGridItemPositioner, createMeetGrid, getAspectRatio, getGridItemDimensions, getSpringConfig,
+    springPresets
 } from '@thangdevalone/meeting-grid-layout-core'

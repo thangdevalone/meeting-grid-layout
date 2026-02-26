@@ -84,6 +84,7 @@ export default function App() {
   const [floatingIndex, setFloatingIndex] = useState(0)
   const [flexMode, setFlexMode] = useState(false)
   const [pipIndex, setPipIndex] = useState(1)
+  const [pinOnly, setPinOnly] = useState(false)
 
   // Responsive floating size
   const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 768px)').matches)
@@ -137,8 +138,12 @@ export default function App() {
     paginationEnabled && itemsPerPage > 0 ? Math.ceil(othersCount / itemsPerPage) : 1
 
   // Use the appropriate total pages based on mode (gallery with pin uses othersPage)
-  const totalPages =
-    layoutMode === 'gallery' && !isGalleryWithPin ? galleryTotalPages : othersTotalPages
+  const totalPages = (() => {
+    if (layoutMode === 'gallery' && !isGalleryWithPin) return galleryTotalPages
+    // In pinOnly mode, total pages = 1 (pin page) + others pages
+    if (pinOnly) return 1 + othersTotalPages
+    return othersTotalPages
+  })()
   const effectiveCurrentPage =
     layoutMode === 'gallery' && !isGalleryWithPin ? currentPage : othersPage
 
@@ -407,6 +412,21 @@ export default function App() {
             </div>
           )}
 
+          {/* Pin Only mode (for gallery with pin + pagination) */}
+          {layoutMode === 'gallery' && pinnedIndex !== null && paginationEnabled && (
+            <div className="control-group">
+              <span className="control-label">Pin Only</span>
+              <div className="control-buttons">
+                <button
+                  className={`btn ${pinOnly ? 'active' : ''}`}
+                  onClick={() => setPinOnly(!pinOnly)}
+                >
+                  {pinOnly ? 'On' : 'Off'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Zoom Mode (for gallery with pin) */}
           {layoutMode === 'gallery' && pinnedIndex !== null && (
             <div className="control-group">
@@ -621,6 +641,7 @@ export default function App() {
             }
             currentVisiblePage={othersPage}
             pipIndex={pipIndex}
+            pinOnly={pinOnly}
           >
             {participants.map((participant, index) => (
               <GridItem key={participant.id} index={index}>

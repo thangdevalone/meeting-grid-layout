@@ -118,6 +118,14 @@ export interface MeetGridOptions extends GridOptions {
    * @default 1 (second participant)
    */
   pipIndex?: number
+  /**
+   * Pin-only mode. When enabled with pagination on mobile/tablet (container width <= 768px):
+   * - Page 0: Only the pinned participant is shown (full screen)
+   * - Page 1+: Other participants are shown in gallery grid (without pin)
+   * On desktop (width > 768px), the layout behaves as normal sidebar.
+   * @default false
+   */
+  pinOnly?: boolean
 }
 
 /**
@@ -580,6 +588,7 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
     pinnedIndex = 0,
     maxVisible = 0,
     currentVisiblePage = 0,
+    pinOnly = false,
   } = options
 
   if (count === 0) {
@@ -614,7 +623,120 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
     }
   }
 
+  // pinOnly mode on mobile/tablet (width <= 768px)
   const { width: W, height: H } = dimensions
+  const isMobileTablet = W <= 768
+
+  if (pinOnly && isMobileTablet && count > 1) {
+    const totalOthers = count - 1
+    const othersPerPage = maxVisible > 0 ? maxVisible : totalOthers
+    const othersTotalPages = Math.ceil(totalOthers / othersPerPage)
+    // Total pages: page 0 = pin only, page 1+ = others gallery
+    const totalPinOnlyPages = 1 + othersTotalPages
+    const safeCurrentPage = Math.min(currentVisiblePage, Math.max(0, totalPinOnlyPages - 1))
+
+    if (safeCurrentPage === 0) {
+      // Page 0: pinned participant fills entire container
+      const mainW = W - gap * 2
+      const mainH = H - gap * 2
+      const getItemDimensions = (index: number) =>
+        index === pinnedIndex ? { width: mainW, height: mainH } : { width: 0, height: 0 }
+      return {
+        width: mainW,
+        height: mainH,
+        rows: 1,
+        cols: 1,
+        layoutMode: 'gallery' as LayoutMode,
+        getPosition: (index: number) =>
+          index === pinnedIndex ? { top: gap, left: gap } : { top: -9999, left: -9999 },
+        getItemDimensions,
+        isMainItem: (index: number) => index === pinnedIndex,
+        pagination: {
+          enabled: true,
+          currentPage: safeCurrentPage,
+          totalPages: totalPinOnlyPages,
+          itemsOnPage: 1,
+          startIndex: 0,
+          endIndex: 1,
+        },
+        isItemVisible: (index: number) => index === pinnedIndex,
+        hiddenCount: 0,
+        getLastVisibleOthersIndex: () => -1,
+        getItemContentDimensions: createGetItemContentDimensions(
+          getItemDimensions,
+          options.itemAspectRatios,
+          aspectRatio
+        ),
+      }
+    } else {
+      // Page 1+: others in gallery grid (pin is hidden)
+      const othersPageIndex = safeCurrentPage - 1
+      const startIdx = othersPageIndex * othersPerPage
+      const endIdx = Math.min(startIdx + othersPerPage, totalOthers)
+      const itemsOnPage = endIdx - startIdx
+
+      // Build ordered list of others indices (excluding pinned)
+      const othersIndices: number[] = []
+      for (let i = 0; i < count; i++) {
+        if (i !== pinnedIndex) othersIndices.push(i)
+      }
+
+      // Get the visible subset
+      const visibleIndices = othersIndices.slice(startIdx, endIdx)
+      const visibleSet = new Set(visibleIndices)
+
+      // Create gallery grid for the visible items
+      const galleryGrid = createGrid({
+        aspectRatio,
+        count: itemsOnPage,
+        dimensions: { width: W, height: H },
+        gap,
+      })
+
+      // Map original index to gallery position
+      const indexToGalleryPos = new Map<number, number>()
+      visibleIndices.forEach((origIdx, galIdx) => {
+        indexToGalleryPos.set(origIdx, galIdx)
+      })
+
+      const getItemDimensions = (index: number) =>
+        visibleSet.has(index)
+          ? { width: galleryGrid.width, height: galleryGrid.height }
+          : { width: 0, height: 0 }
+
+      return {
+        width: galleryGrid.width,
+        height: galleryGrid.height,
+        rows: galleryGrid.rows,
+        cols: galleryGrid.cols,
+        layoutMode: 'gallery' as LayoutMode,
+        getPosition: (index: number) => {
+          const galPos = indexToGalleryPos.get(index)
+          if (galPos === undefined) return { top: -9999, left: -9999 }
+          return galleryGrid.getPosition(galPos)
+        },
+        getItemDimensions,
+        isMainItem: () => false,
+        pagination: {
+          enabled: true,
+          currentPage: safeCurrentPage,
+          totalPages: totalPinOnlyPages,
+          itemsOnPage,
+          startIndex: startIdx,
+          endIndex: endIdx,
+        },
+        isItemVisible: (index: number) => visibleSet.has(index),
+        hiddenCount: 0,
+        getLastVisibleOthersIndex: () => -1,
+        getItemContentDimensions: createGetItemContentDimensions(
+          getItemDimensions,
+          options.itemAspectRatios,
+          aspectRatio
+        ),
+      }
+    }
+  }
+
   const isPortrait = H > W
   const effectivePosition = isPortrait ? 'bottom' : othersPosition
   const isVertical = effectivePosition === 'bottom' || effectivePosition === 'top'
@@ -657,14 +779,14 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
       let thumbH = thumbW * ratio
 
       // Required area to fit these items
-      let neededH = mobileRows * thumbH + (mobileRows - 1) * gap + gap
+      let neededH = mobileRows * thumbH + (mobileRows - 1) * gap
 
       // Cap: others can take at most 70% — pin still gets at least 30%
       const maxOthersH = H * 0.7
       if (neededH > maxOthersH) {
         neededH = maxOthersH
         // Recalculate thumb size to fit within capped area
-        const availThumbH = (neededH - (mobileRows - 1) * gap - gap * 2) / mobileRows
+        const availThumbH = (neededH - (mobileRows - 1) * gap) / mobileRows
         thumbH = availThumbH
         thumbW = thumbH / ratio
       }
@@ -684,7 +806,7 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
         const cols = Math.ceil((visibleOthers || 1) / rows)
         const thumbW = (areaW - (cols - 1) * gap) / cols
         const thumbH = thumbW * othersRatio
-        const requiredH = rows * thumbH + (rows - 1) * gap + gap
+        const requiredH = rows * thumbH + (rows - 1) * gap
 
         const areaRatio = requiredH / H
         if (areaRatio > maxOthersRatio) continue
@@ -724,7 +846,7 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
       const rows = Math.ceil((visibleOthers || 1) / cols)
       const thumbH = (areaH - (rows - 1) * gap) / rows
       const thumbW = thumbH / ratio
-      const requiredW = cols * thumbW + (cols - 1) * gap + gap * 2
+      const requiredW = cols * thumbW + (cols - 1) * gap
 
       const areaRatio = requiredW / W
       const thumbArea = thumbW * thumbH
@@ -792,7 +914,7 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
           thumbCols = Math.min(visibleOthers, 2)
           thumbRows = Math.ceil(visibleOthers / thumbCols)
           const maxW = (othersAreaWidth - (thumbCols - 1) * gap) / thumbCols
-          const maxH = (othersAreaHeight - (thumbRows - 1) * gap - gap) / thumbRows
+          const maxH = (othersAreaHeight - (thumbRows - 1) * gap) / thumbRows
           thumbWidth = maxW
           thumbHeight = thumbWidth * ratio
           if (thumbHeight > maxH) {

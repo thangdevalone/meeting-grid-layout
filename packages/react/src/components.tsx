@@ -77,6 +77,14 @@ export interface GridContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
    * @default 1 (second participant)
    */
   pipIndex?: number
+  /**
+   * Pin-only mode. When enabled with pagination on mobile/tablet (container width <= 768px):
+   * - Page 0: Only the pinned participant is shown (full screen)
+   * - Page 1+: Other participants are shown in gallery grid (without pin)
+   * On desktop (width > 768px), the layout behaves as normal sidebar.
+   * @default false
+   */
+  pinOnly?: boolean
 }
 
 /**
@@ -104,6 +112,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     floatHeight,
     floatBreakpoints,
     pipIndex,
+    pinOnly,
 
     ...props
   },
@@ -133,6 +142,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     floatHeight,
     floatBreakpoints,
     pipIndex,
+    pinOnly,
   }
 
   const grid = useMeetGrid(gridOptions)
@@ -456,6 +466,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
 
     return (
       <motion.div
+        key={`float-${index}`}
         ref={ref}
         drag
         dragMomentum={false}
@@ -504,6 +515,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
   // Subsequent animate changes → Motion springs from previous to new size
   return (
     <motion.div
+      key={`grid-${index}`}
       ref={ref}
       initial={{ width: itemDims.width, height: itemDims.height }}
       animate={{ width: itemDims.width, height: itemDims.height }}
