@@ -166,7 +166,7 @@ jobs:
       - name: Commit and push version bump
         run: |
           git add .
-          git commit -m "chore(release): v${{ steps.bump_version.outputs.new_version }}" || echo "No changes to commit"
+          git commit -m "chore(release): v${{ steps.bump_version.outputs.new_version }} [skip ci]" || echo "No changes to commit"
           git push origin main --force-with-lease
 
       - name: Create Git tag
