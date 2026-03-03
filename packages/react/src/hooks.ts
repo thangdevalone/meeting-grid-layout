@@ -87,6 +87,10 @@ export function useGridDimensions(ref: RefObject<HTMLElement | null>): GridDimen
 export function useMeetGrid(options: MeetGridOptions): MeetGridResult {
   // Serialize itemAspectRatios for dependency comparison
   const itemAspectRatiosKey = options.itemAspectRatios?.join(',') ?? ''
+  // Serialize floatBreakpoints to avoid unstable array reference triggering recalc
+  const floatBreakpointsKey = options.floatBreakpoints
+    ?.map(b => `${b.minWidth}:${b.width}x${b.height}`)
+    .join(',') ?? ''
 
   return useMemo(() => {
     return createMeetGrid(options)
@@ -107,7 +111,7 @@ export function useMeetGrid(options: MeetGridOptions): MeetGridResult {
     options.pipIndex,
     options.floatWidth,
     options.floatHeight,
-    options.floatBreakpoints,
+    floatBreakpointsKey,
     itemAspectRatiosKey,
   ])
 }

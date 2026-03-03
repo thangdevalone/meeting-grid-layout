@@ -1241,7 +1241,6 @@ function createEmptyMeetGridResult(layoutMode: LayoutMode): MeetGridResult {
 }
 
 /**
-/**
  * Create a flexible gallery grid using a justified layout algorithm.
  * Uses binary search to find the optimal row height that fills the container.
  * Items are packed greedily into rows, then each row is scaled to fill width.
@@ -1267,22 +1266,9 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
   const availH = H - gap * 2
 
   // --- Pagination / Visual capping ---
-  let visibleCount = count
   let hiddenCount = 0
   let startIndex = 0
   let endIndex = count
-
-  if (maxItemsPerPage && maxItemsPerPage > 0) {
-    const pagInfo = createPaginationInfo(count, maxItemsPerPage, currentPage)
-    visibleCount = pagInfo.itemsOnPage
-    startIndex = pagInfo.startIndex
-    endIndex = pagInfo.endIndex
-  } else if (maxVisible > 0 && count > maxVisible) {
-    visibleCount = maxVisible
-    hiddenCount = count - maxVisible + 1
-    startIndex = 0
-    endIndex = maxVisible
-  }
 
   const pagination: PaginationInfo =
     maxItemsPerPage && maxItemsPerPage > 0
@@ -1291,10 +1277,19 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
         enabled: false,
         currentPage: 0,
         totalPages: 1,
-        itemsOnPage: visibleCount,
-        startIndex,
-        endIndex,
+        itemsOnPage: count,
+        startIndex: 0,
+        endIndex: count,
       }
+
+  if (pagination.enabled) {
+    startIndex = pagination.startIndex
+    endIndex = pagination.endIndex
+  } else if (maxVisible > 0 && count > maxVisible) {
+    hiddenCount = count - maxVisible + 1
+    startIndex = 0
+    endIndex = maxVisible
+  }
 
   // Slice to only visible items for layout
   const visibleIndices: number[] = []
@@ -1380,8 +1375,8 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
 
   const bestRows = distributeEvenly(bestRowCount)
 
-  // posMap maps relative index (0..effectiveCount-1) -> layout info
-  const posMap = new Map<number, { position: Position; dimensions: GridDimensions }>()
+  // posArr maps relative index (0..effectiveCount-1) -> layout info
+  const posArr: { position: Position; dimensions: GridDimensions }[] = new Array(effectiveCount)
   const rowCount = bestRows.length
 
   // Calculate natural row heights (each row fills width, maintaining aspect ratio)
@@ -1416,10 +1411,10 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
 
     let currentLeft = gap + horizontalOffset
     for (let ci = 0; ci < row.length; ci++) {
-      posMap.set(row[ci], {
+      posArr[row[ci]] = {
         position: { top: currentTop, left: currentLeft },
         dimensions: { width: itemWidths[ci], height: finalRowH },
-      })
+      }
       currentLeft += itemWidths[ci] + gap
     }
     currentTop += finalRowH + gap
@@ -1431,7 +1426,7 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
     if (relativeIndex < 0 || relativeIndex >= effectiveCount) {
       return { top: -9999, left: -9999 }
     }
-    return posMap.get(relativeIndex)?.position ?? { top: -9999, left: -9999 }
+    return posArr[relativeIndex]?.position ?? { top: -9999, left: -9999 }
   }
 
   const getItemDimensions = (index: number): GridDimensions => {
@@ -1439,7 +1434,7 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
     if (relativeIndex < 0 || relativeIndex >= effectiveCount) {
       return { width: 0, height: 0 }
     }
-    return posMap.get(relativeIndex)?.dimensions ?? { width: 0, height: 0 }
+    return posArr[relativeIndex]?.dimensions ?? { width: 0, height: 0 }
   }
 
   const lastVisibleIndex = endIndex - 1
@@ -1582,23 +1577,9 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
       }
 
       // Priority: pagination > maxVisible
-      let visibleCount = count
       let hiddenCount = 0
       let startIndex = 0
       let endIndex = count
-
-      if (maxItemsPerPage && maxItemsPerPage > 0) {
-        const pagination = createPaginationInfo(count, maxItemsPerPage, currentPage)
-        visibleCount = pagination.itemsOnPage
-        startIndex = pagination.startIndex
-        endIndex = pagination.endIndex
-      } else if (maxVisible > 0 && count > maxVisible) {
-        visibleCount = maxVisible
-        // +1 because the last slot shows the indicator instead of a participant
-        hiddenCount = count - maxVisible + 1
-        startIndex = 0
-        endIndex = maxVisible
-      }
 
       const pagination: PaginationInfo =
         maxItemsPerPage && maxItemsPerPage > 0
@@ -1607,12 +1588,22 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
             enabled: false,
             currentPage: 0,
             totalPages: 1,
-            itemsOnPage: visibleCount,
-            startIndex,
-            endIndex,
+            itemsOnPage: count,
+            startIndex: 0,
+            endIndex: count,
           }
 
-      const effectiveCount = visibleCount
+      if (pagination.enabled) {
+        startIndex = pagination.startIndex
+        endIndex = pagination.endIndex
+      } else if (maxVisible > 0 && count > maxVisible) {
+        // +1 because the last slot shows the indicator instead of a participant
+        hiddenCount = count - maxVisible + 1
+        startIndex = 0
+        endIndex = maxVisible
+      }
+
+      const effectiveCount = endIndex - startIndex
 
       // Mobile + pagination: use uniform-fill layout (items stretch to fill entire container)
       // Same behavior as pinOnly pages — items fill width, last row stretches
