@@ -219,12 +219,14 @@ function changeLayoutMode(mode: LayoutMode) {
 }
 
 // Watch for page bounds
-watch([totalPages, layoutMode], () => {
+watch([totalPages, layoutMode, () => participants.value.length], () => {
   if (layoutMode.value === 'gallery' && currentPage.value >= galleryTotalPages.value) {
     currentPage.value = Math.max(0, galleryTotalPages.value - 1)
   }
-  if (layoutMode.value !== 'gallery' && othersPage.value >= othersTotalPages.value) {
-    othersPage.value = Math.max(0, othersTotalPages.value - 1)
+  // In pinOnly mode, othersPage can go up to totalPages-1 (includes the pin page)
+  const maxOthersPage = pinOnly.value ? totalPages.value : othersTotalPages.value
+  if (othersPage.value >= maxOthersPage) {
+    othersPage.value = Math.max(0, maxOthersPage - 1)
   }
 })
 

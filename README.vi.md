@@ -291,24 +291,30 @@ const itemAspectRatios = [
 
 Khi các participant có **tỉ lệ khác nhau** (ví dụ: điện thoại 9:16, máy tính 16:9), grid sử dụng thuật toán **Tìm kiếm số hàng tối ưu** để tìm bố cục ít lãng phí không gian nhất mà vẫn giữ đúng tỉ lệ.
 
+#### Vấn đề của Greedy Packing
+
+Cách tiếp cận đơn giản là xếp item vào hàng cho đến khi hàng "đầy" rồi xuống hàng mới. Cách này thường tạo ra **layout lệch** — ví dụ 10 item có thể thành `[4, 5, 1]`, hàng cuối chỉ có 1 item lẻ loi và lãng phí rất nhiều không gian.
+
+Thuật toán của chúng tôi tránh điều này bằng cách **thử nhiều số hàng khác nhau** và chọn cái lấp đầy container tốt nhất.
+
 #### Sơ đồ thuật toán
 
 ```mermaid
 flowchart TD
-    A["Bắt đầu: N item với tỉ lệ khác nhau"] --> B["Tính tỉ lệ w/h cho từng item"]
-    B --> C["Thử số hàng: 1, 2, 3, ... đến √N × 2.5"]
-    C --> D["Với mỗi số hàng R"]
-    D --> E["Phân bổ đều N item vào R hàng"]
-    E --> F["Với mỗi hàng: tính chiều cao tự nhiên\nrowH = chiềuRộng / Σ(tỉ lệ w/h)"]
-    F --> G["Tổng chiều cao các hàng + khoảng cách = totalH"]
-    G --> H{"| totalH - availH |\n< bestDiff?"}
-    H -- Có --> I["Cập nhật: bestRowCount = R"]
-    H -- Không --> J{"Còn số hàng\ncần thử?"}
+    A["Bắt đầu: N item với tỉ lệ khác nhau"] --> B["Với mỗi item, tính tỉ lệ w/h\nVD: 16:9 → 1.778, 9:16 → 0.5625"]
+    B --> C["Đặt phạm vi tìm kiếm:\nnumRows = 1, 2, 3, ...\nđến min(N, ⌈√N × 2.5⌉)"]
+    C --> D["Với mỗi numRows"]
+    D --> E["Phân bổ đều N item vào numRows hàng\n(mỗi hàng ⌊N/R⌋ hoặc ⌈N/R⌉ item)"]
+    E --> F["Với mỗi hàng, tính chiều cao tự nhiên:\nrowH = (chiềuRộng − khoảng cách) / Σ(tỉ lệ w/h trong hàng)"]
+    F --> G["totalH = Σ(tất cả rowH) + khoảng cách giữa các hàng"]
+    G --> H{"Liệu |totalH − chiềuCao|\n< kết quả tốt nhất hiện tại?"}
+    H -- Có --> I["Lưu lại: bestRowCount = numRows"]
+    H -- Không --> J{"totalH vừa vượt qua\nchiềuCao container?"}
     I --> J
-    J -- Có --> D
-    J -- Không --> K["Xây dựng layout với bestRowCount"]
-    K --> L["Áp dụng scale đều = min(1.0, availH / totalH)"]
-    L --> M["Đặt vị trí item — tỉ lệ được bảo toàn"]
+    J -- "Có → thoát sớm" --> K["Xây dựng layout với bestRowCount"]
+    J -- "Không → thử tiếp" --> D
+    K --> L["globalScale = min(1.0, chiềuCao / totalH)\nÁp dụng cùng scale cho TẤT CẢ item"]
+    L --> M["Căn giữa ngang & dọc\nTỉ lệ được bảo toàn hoàn hảo ✓"]
 
     style A fill:#6366f1,color:#fff
     style I fill:#22c55e,color:#fff
@@ -317,23 +323,53 @@ flowchart TD
 
 #### Các bước chi tiết
 
-1. **Tính tỉ lệ** — Với mỗi item, tính tỉ lệ chiều rộng/chiều cao từ aspect ratio (ví dụ: `16:9` → `1.778`, `9:16` → `0.5625`).
+1. **Tính tỉ lệ w/h** — Với mỗi item, chuyển aspect ratio thành số:
+   - `16:9` → `1.778` (ngang rộng)
+   - `9:16` → `0.5625` (dọc cao)
+   - `4:3` → `1.333`, `1:1` → `1.0`
 
-2. **Thử tất cả số hàng** — Thay vì xếp tham lam (greedy packing — có thể tạo layout lệch như `[4, 5, 1]`), thuật toán thử mọi số hàng từ 1 đến `⌈√N × 2.5⌉`.
+2. **Đặt phạm vi tìm kiếm** — Thử mọi số hàng từ `1` đến `min(N, ⌈√N × 2.5⌉)`. Bỏ qua số hàng mà `⌊N/numRows⌋ = 0` (sẽ tạo hàng rỗng).
 
-3. **Phân bổ đều** — Với mỗi số hàng `R`, item được chia đều: mỗi hàng `⌊N/R⌋` hoặc `⌈N/R⌉` item, giữ nguyên thứ tự participant.
+3. **Phân bổ đều** — Với mỗi `numRows`, item được chia đều:
+   - `base = ⌊N / numRows⌋`, `extra = N % numRows`
+   - `extra` hàng đầu nhận `base + 1` item, các hàng còn lại nhận `base` item
+   - Ví dụ: 9 item chia 2 hàng → `[5, 4]`; chia 4 hàng → `[3, 2, 2, 2]`
 
-4. **Chiều cao tự nhiên** — Chiều cao tự nhiên của mỗi hàng được tính khi nó fill hết chiều rộng container:
-
+4. **Tính chiều cao tự nhiên mỗi hàng** — Nếu một hàng item lấp đầy chiều rộng container, nó cao bao nhiêu?
    ```
-   rowHeight = (chiều rộng - khoảng cách) / Σ(tỉ lệ w/h của item trong hàng)
+   rowHeight = (chiềuRộng − (sốItem − 1) × gap) / Σ(tỉ lệ w/h của item trong hàng)
    ```
+   Hàng có item dọc/cao sẽ cho chiều cao lớn; hàng có item ngang/rộng cho chiều cao nhỏ.
 
-5. **Chọn phương án tốt nhất** — Thuật toán chọn số hàng mà `|totalHeight - availableHeight|` nhỏ nhất. Điều này giúp hệ số scale đều gần `1.0` nhất có thể.
+5. **Tổng chiều cao & chọn tốt nhất** — Cộng tất cả chiều cao hàng + khoảng cách. Số hàng mà `|totalH − chiềuCao|` **nhỏ nhất** thắng — nghĩa là hệ số scale cuối sẽ gần `1.0` nhất (ít lãng phí nhất).
 
-6. **Scale đều** — Cùng một hệ số scale áp dụng cho cả chiều rộng và chiều cao, **bảo toàn đúng tỉ lệ**. Item được căn giữa trong không gian còn lại.
+6. **Thoát sớm** — Khi `numRows` tăng, `totalH` cũng tăng theo. Ngay khi `totalH` vượt từ dưới lên trên `chiềuCao container`, phương án tối ưu đã được ghi nhận — dừng tìm kiếm.
 
-7. **Thoát sớm** — Vì `totalH` tăng theo số hàng, vòng lặp dừng ngay khi vượt qua `availH` (phương án tối ưu đã tìm được).
+7. **Scale đều** — Áp dụng một hệ số `globalScale = min(1.0, chiềuCao / totalH)` cho **tất cả** item. Vì chiều rộng và chiều cao scale cùng hệ số, tỉ lệ của mỗi item được **bảo toàn hoàn hảo**.
+
+8. **Căn giữa & đặt vị trí** — Mỗi hàng được căn giữa theo chiều ngang, toàn bộ grid được căn giữa theo chiều dọc trong không gian còn lại.
+
+#### Tại sao chọn `√N × 2.5` làm giới hạn trên?
+
+Phạm vi tìm kiếm `⌈√N × 2.5⌉` được chọn cẩn thận:
+
+- **`√N` là baseline "lưới vuông".** Với N item trong grid đều, `√N` hàng × `√N` cột là cách sắp xếp tự nhiên. Ví dụ: 9 item → 3×3, 16 item → 4×4.
+
+- **Tỉ lệ hỗn hợp có thể cần nhiều hàng hơn.** Khi tất cả item là dọc/cao (VD: 9:16), xếp cạnh nhau chiếm rất nhiều chiều rộng — có thể cần nhiều hàng hơn `√N` để tận dụng chiều cao container.
+
+- **Hệ số `2.5×` cung cấp đủ dư địa.** Cho phép tìm kiếm vượt xa baseline căn bậc hai để xử lý trường hợp nhiều item dọc, mà không lãng phí:
+
+  | N (item) | √N   | ⌈√N × 2.5⌉ | Số hàng thử tối đa |
+  | -------- | ---- | ----------- | ------------------- |
+  | 4        | 2.0  | 5           | 4 (giới hạn tại N)  |
+  | 9        | 3.0  | 8           | 8                   |
+  | 16       | 4.0  | 10          | 10                  |
+  | 25       | 5.0  | 13          | 13                  |
+  | 50       | 7.07 | 18          | 18                  |
+
+- **`min(N, ...)` giới hạn tối đa.** Không bao giờ cần nhiều hàng hơn số item. Với N nhỏ (VD: 4 item), `⌈√4 × 2.5⌉ = 5` bị giới hạn còn `4`.
+
+- **Kết hợp với thoát sớm**, số lần lặp thực tế thường ít hơn nhiều — tìm kiếm dừng ngay khi `totalH` vượt qua `chiềuCao container`, thường chỉ sau vài ứng viên đầu tiên.
 
 #### So sánh trước và sau
 
@@ -344,29 +380,32 @@ flowchart TD
 #### Ví dụ trực quan: 9 item với tỉ lệ hỗn hợp
 
 ```
-Container: 1200 × 700px, tỉ lệ: 16:9, 9:16, 4:3, 1:1, 16:9, 9:16, 4:3, 1:1, 16:9
+Container: 1200 × 700px
+Tỉ lệ: 16:9, 9:16, 4:3, 1:1, 16:9, 9:16, 4:3, 1:1, 16:9
+Phạm vi tìm: 1 đến min(9, ⌈√9 × 2.5⌉) = min(9, 8) = 8
 
 Tìm kiếm số hàng:
-┌─────────────────────────────────────────────────────────────────┐
-│ Rows=1: [9 items]      totalH = 152px  │ diff = 548 ❌         │
-│ Rows=2: [5, 4]         totalH = 680px  │ diff =  20 ✅ Tốt nhất│
-│ Rows=3: [3, 3, 3]      totalH = 1050px │ diff = 350 ❌         │
-│ Rows=4: [3, 2, 2, 2]   totalH = 1520px │ diff = 820 ❌         │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Rows=1: [9]           totalH =  152px  │ |152−700| = 548  ❌           │
+│ Rows=2: [5, 4]        totalH =  680px  │ |680−700| =  20  ✅ Tốt nhất │
+│ Rows=3: [3, 3, 3]     totalH = 1050px  │ |1050−700| = 350 ❌           │
+│ → totalH vượt 700 (680→1050) → THOÁT SỚM                              │
+└──────────────────────────────────────────────────────────────────────────┘
 
-Thắng: 2 hàng [5, 4] → globalScale = min(1.0, 700/680) = 1.0
-→ Item lấp 97% container, tỉ lệ được bảo toàn hoàn hảo
+Thắng: 2 hàng [5, 4]
+  globalScale = min(1.0, 700 / 680) = 1.0
+  → Item lấp 97% container, tỉ lệ bảo toàn hoàn hảo
 ```
 
 #### Hiệu năng
 
-| Chỉ số                | Giá trị                                                     |
-| --------------------- | ----------------------------------------------------------- |
-| Độ phức tạp thời gian | `O(N × √N)` — N item × √N ứng viên hàng                     |
-| Bộ nhớ                | `O(N)` — chỉ phân bổ mảng cho phương án thắng               |
-| Pha tìm kiếm          | Không cấp phát bộ nhớ — chỉ tính arithmetic trên mảng tỉ lệ |
-| Tốc độ thực tế        | < 0.1ms cho 50 participant                                  |
-| Thoát sớm             | Dừng ngay khi `totalH` vượt qua `availH`                    |
+| Chỉ số                | Giá trị                                                            |
+| --------------------- | ------------------------------------------------------------------ |
+| Độ phức tạp thời gian | `O(N × √N)` — N item × tối đa √N×2.5 ứng viên (có thoát sớm)     |
+| Bộ nhớ                | `O(N)` — chỉ cấp phát mảng cho phương án thắng                    |
+| Pha tìm kiếm          | Không cấp phát bộ nhớ — chỉ tính arithmetic trên mảng tỉ lệ       |
+| Tốc độ thực tế        | < 0.1ms cho 50 participant                                        |
+| Thoát sớm             | Dừng ngay khi `totalH` vượt qua `chiềuCao container`              |
 
 ---
 

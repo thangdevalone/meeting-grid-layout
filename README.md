@@ -291,24 +291,30 @@ const itemAspectRatios = [
 
 When participants have **mixed aspect ratios** (e.g., some on phones with 9:16, others on desktops with 16:9), the grid uses an **Optimal Row Search** algorithm to find the layout that minimizes wasted space while preserving correct aspect ratios.
 
+#### The Problem with Greedy Packing
+
+A naive approach packs items row-by-row until a row is "full", then starts a new row. This often creates **imbalanced layouts** — for example, 10 items could end up as `[4, 5, 1]`, leaving the last row with a single lonely item and lots of wasted space.
+
+Our algorithm avoids this by **trying multiple row counts** and picking the one that fills the container best.
+
 #### Algorithm Flowchart
 
 ```mermaid
 flowchart TD
-    A["Start: N items with mixed aspect ratios"] --> B["Compute w/h ratio for each item"]
-    B --> C["Try row counts: 1, 2, 3, ... up to √N × 2.5"]
-    C --> D["For each row count R"]
-    D --> E["Distribute N items evenly into R rows"]
-    E --> F["For each row: compute natural height\nrowH = availableWidth / Σ(w/h ratios)"]
-    F --> G["Sum all row heights + gaps = totalH"]
-    G --> H{"| totalH - availH |\n< bestDiff?"}
-    H -- Yes --> I["Update best: bestRowCount = R"]
-    H -- No --> J{"More row counts\nto try?"}
+    A["Start: N items with mixed aspect ratios"] --> B["For each item, compute its w/h ratio\ne.g. 16:9 → 1.778, 9:16 → 0.5625"]
+    B --> C["Set search range:\nnumRows = 1, 2, 3, ...\nup to min(N, ⌈√N × 2.5⌉)"]
+    C --> D["For each candidate numRows"]
+    D --> E["Distribute N items evenly into numRows rows\n(each row gets ⌊N/R⌋ or ⌈N/R⌉ items)"]
+    E --> F["For each row, compute natural height:\nrowH = (containerWidth − gaps) / Σ(w/h ratios in row)"]
+    F --> G["totalH = Σ(all rowH) + gaps between rows"]
+    G --> H{"Is |totalH − containerH|\n< current best?"}
+    H -- Yes --> I["Save this as bestRowCount"]
+    H -- No --> J{"totalH just crossed\ncontainerH?"}
     I --> J
-    J -- Yes --> D
-    J -- No --> K["Build layout with bestRowCount"]
-    K --> L["Apply uniform scale = min(1.0, availH / totalH)"]
-    L --> M["Position items with preserved aspect ratios"]
+    J -- "Yes → early exit" --> K["Build final layout with bestRowCount"]
+    J -- "No → try next" --> D
+    K --> L["globalScale = min(1.0, containerH / totalH)\nApply same scale to ALL items"]
+    L --> M["Center items horizontally & vertically\nAspect ratios perfectly preserved ✓"]
 
     style A fill:#6366f1,color:#fff
     style I fill:#22c55e,color:#fff
@@ -317,23 +323,53 @@ flowchart TD
 
 #### Step-by-Step
 
-1. **Compute ratios** — For each item, calculate its width/height ratio from the aspect ratio string (e.g., `16:9` → `1.778`, `9:16` → `0.5625`).
+1. **Compute w/h ratios** — For each item, convert its aspect ratio string to a numeric width/height ratio:
+   - `16:9` → `1.778` (wide landscape)
+   - `9:16` → `0.5625` (tall portrait)
+   - `4:3` → `1.333`, `1:1` → `1.0`
 
-2. **Try all row counts** — Instead of greedy packing (which can produce imbalanced layouts like `[4, 5, 1]`), the algorithm tries every possible row count from 1 up to `⌈√N × 2.5⌉`.
+2. **Set the search range** — Try every row count from `1` up to `min(N, ⌈√N × 2.5⌉)`. Skip any row count where `⌊N/numRows⌋ = 0` (would leave empty rows).
 
-3. **Even distribution** — For each candidate row count `R`, items are distributed evenly: each row gets `⌊N/R⌋` or `⌈N/R⌉` items, preserving participant order.
+3. **Even distribution** — For each candidate `numRows`, items are split evenly:
+   - `base = ⌊N / numRows⌋`, `extra = N % numRows`
+   - First `extra` rows get `base + 1` items, remaining rows get `base` items
+   - Example: 9 items into 2 rows → `[5, 4]`; into 4 rows → `[3, 2, 2, 2]`
 
-4. **Natural height** — Each row's natural height is computed assuming it fills the full container width:
-
+4. **Compute natural height per row** — If a row of items fills the full container width, how tall would it be?
    ```
-   rowHeight = (availableWidth - gaps) / Σ(w/h ratios of items in row)
+   rowHeight = (containerWidth − (itemsInRow − 1) × gap) / Σ(w/h ratios of items in row)
    ```
+   Rows with tall/portrait items produce larger heights; rows with wide/landscape items produce smaller heights.
 
-5. **Best fit selection** — The algorithm picks the row count where `|totalHeight - availableHeight|` is smallest. This ensures the uniform scale factor is as close to `1.0` as possible.
+5. **Total height & best fit** — Sum all row heights + gaps. The row count where `|totalH − containerH|` is **smallest** wins — this means the final scale factor will be closest to `1.0` (least wasted space).
 
-6. **Uniform scaling** — A single scale factor is applied to both width and height of all items, preserving their aspect ratios. Items are centered in remaining space.
+6. **Early exit** — As `numRows` increases, `totalH` generally increases too. Once `totalH` crosses from below `containerH` to above it, the optimal is already recorded — stop searching.
 
-7. **Early exit** — Since `totalH` generally increases with more rows, the search exits early once it crosses `availH` (the optimal is already found).
+7. **Uniform scaling** — Apply a single scale factor `globalScale = min(1.0, containerH / totalH)` to **all** items equally. Because width and height scale by the same factor, every item's aspect ratio is **perfectly preserved**.
+
+8. **Center & position** — Each row is centered horizontally, and the entire grid is centered vertically in any remaining space.
+
+#### Why `√N × 2.5` as the Upper Bound?
+
+The search range `⌈√N × 2.5⌉` is carefully chosen:
+
+- **`√N` gives the "square-ish" baseline.** For N items in a regular grid, `√N` rows × `√N` columns is the natural starting point. For example, 9 items → 3×3, 16 items → 4×4.
+
+- **Mixed aspect ratios may need more rows.** When all items are tall/portrait (e.g., 9:16), fitting them side by side uses lots of column space — you might need significantly more rows than `√N` to utilize the container height well.
+
+- **The `2.5×` multiplier provides enough headroom.** It allows the search to go well beyond the square-root baseline to handle portrait-heavy mixes, without being wasteful:
+
+  | N (items) | √N   | ⌈√N × 2.5⌉ | Max rows tried |
+  | --------- | ---- | ----------- | -------------- |
+  | 4         | 2.0  | 5           | 4 (capped at N)|
+  | 9         | 3.0  | 8           | 8              |
+  | 16        | 4.0  | 10          | 10             |
+  | 25        | 5.0  | 13          | 13             |
+  | 50        | 7.07 | 18          | 18             |
+
+- **`min(N, ...)` caps the maximum.** You never need more rows than items. For small N (e.g., 4 items), `⌈√4 × 2.5⌉ = 5` is capped at `4`.
+
+- **Combined with early exit**, the actual iterations are typically far fewer — the search stops as soon as `totalH` crosses `containerH`, which often happens within the first few candidates.
 
 #### Before vs After
 
@@ -344,29 +380,32 @@ flowchart TD
 #### Visual Example: 9 Items with Mixed Ratios
 
 ```
-Container: 1200 × 700px, items with ratios: 16:9, 9:16, 4:3, 1:1, 16:9, 9:16, 4:3, 1:1, 16:9
+Container: 1200 × 700px
+Items: 16:9, 9:16, 4:3, 1:1, 16:9, 9:16, 4:3, 1:1, 16:9
+Search range: 1 to min(9, ⌈√9 × 2.5⌉) = min(9, 8) = 8
 
 Row count search:
-┌─────────────────────────────────────────────────────────────┐
-│ Rows=1: [9 items]      totalH = 152px  │ diff = 548 ❌     │
-│ Rows=2: [5, 4]         totalH = 680px  │ diff =  20 ✅ Best│
-│ Rows=3: [3, 3, 3]      totalH = 1050px │ diff = 350 ❌     │
-│ Rows=4: [3, 2, 2, 2]   totalH = 1520px │ diff = 820 ❌     │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ Rows=1: [9]           totalH =  152px  │ |152−700| = 548  ❌       │
+│ Rows=2: [5, 4]        totalH =  680px  │ |680−700| =  20  ✅ Best  │
+│ Rows=3: [3, 3, 3]     totalH = 1050px  │ |1050−700| = 350 ❌       │
+│ → totalH crossed 700 (from 680→1050) → EARLY EXIT                  │
+└──────────────────────────────────────────────────────────────────────┘
 
-Winner: 2 rows [5, 4] → globalScale = min(1.0, 700/680) = 1.0
-→ Items fill 97% of container, aspect ratios perfectly preserved
+Winner: 2 rows [5, 4]
+  globalScale = min(1.0, 700 / 680) = 1.0
+  → Items fill 97% of container, every aspect ratio perfectly preserved
 ```
 
 #### Performance
 
-| Metric          | Value                                               |
-| --------------- | --------------------------------------------------- |
-| Time complexity | `O(N × √N)` — N items × √N row candidates           |
-| Space           | `O(N)` — only the winning distribution is allocated |
-| Search phase    | Zero allocations — pure arithmetic on ratio array   |
-| Typical speed   | < 0.1ms for 50 participants                         |
-| Early exit      | Stops as soon as `totalH` crosses `availH`          |
+| Metric          | Value                                                          |
+| --------------- | -------------------------------------------------------------- |
+| Time complexity | `O(N × √N)` — N items × up to √N×2.5 candidates (with early exit) |
+| Space           | `O(N)` — only the winning distribution is allocated            |
+| Search phase    | Zero allocations — pure arithmetic on ratio array              |
+| Typical speed   | < 0.1ms for 50 participants                                    |
+| Early exit      | Stops as soon as `totalH` crosses `containerH`                 |
 
 ---
 

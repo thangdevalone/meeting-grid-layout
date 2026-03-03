@@ -68,14 +68,15 @@ jobs:
           else
             # Auto-detect from commit messages in this push/merge
             # Get all commits in this push (from before to after)
-            if [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            BEFORE="${{ github.event.before }}"
+            if [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -t "$BEFORE" >/dev/null 2>&1; then
               # Normal push/merge - check all commits in the push
               COMMITS=$(git log --pretty=%B ${{ github.event.before }}..${{ github.event.after }})
               echo "Checking commits from ${{ github.event.before }} to ${{ github.event.after }}"
             else
-              # First push to branch - check last commit only
+              # First push or force push (old commit unreachable) - check last commit only
               COMMITS=$(git log -1 --pretty=%B)
-              echo "First push - checking last commit only"
+              echo "Force push or first push - checking last commit only"
             fi
             
             echo "Commits to analyze:"

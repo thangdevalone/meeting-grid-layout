@@ -152,10 +152,12 @@ export default function App() {
     if (currentPage >= galleryTotalPages) {
       setCurrentPage(Math.max(0, galleryTotalPages - 1))
     }
-    if (othersPage >= othersTotalPages) {
-      setOthersPage(Math.max(0, othersTotalPages - 1))
+    // In pinOnly mode, othersPage can go up to totalPages-1 (includes the pin page)
+    const maxOthersPage = pinOnly ? totalPages : othersTotalPages
+    if (othersPage >= maxOthersPage) {
+      setOthersPage(Math.max(0, maxOthersPage - 1))
     }
-  }, [participants.length, galleryTotalPages, othersTotalPages, currentPage, othersPage])
+  }, [participants.length, galleryTotalPages, othersTotalPages, currentPage, othersPage, pinOnly, totalPages])
 
   // Auto-switch floatingIndex when it matches pinnedIndex (so floating window always shows different participant)
   useEffect(() => {
@@ -193,9 +195,11 @@ export default function App() {
     if (layoutMode === 'gallery' && pinnedIndex === null) {
       setCurrentPage((prev) => Math.min(prev + 1, galleryTotalPages - 1))
     } else {
-      setOthersPage((prev) => Math.min(prev + 1, othersTotalPages - 1))
+      // In pinOnly mode, pages go up to totalPages-1 (page 0 = pin, page 1+ = others)
+      const maxPage = pinOnly ? totalPages - 1 : othersTotalPages - 1
+      setOthersPage((prev) => Math.min(prev + 1, maxPage))
     }
-  }, [layoutMode, pinnedIndex, galleryTotalPages, othersTotalPages])
+  }, [layoutMode, pinnedIndex, galleryTotalPages, othersTotalPages, pinOnly, totalPages])
 
   const goToPrevPage = useCallback(() => {
     if (layoutMode === 'gallery' && pinnedIndex === null) {

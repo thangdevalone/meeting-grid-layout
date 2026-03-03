@@ -685,13 +685,22 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
       const visibleIndices = othersIndices.slice(startIdx, endIdx)
       const visibleSet = new Set(visibleIndices)
 
-      // Create gallery grid for the visible items
-      const galleryGrid = createGrid({
-        aspectRatio,
-        count: itemsOnPage,
-        dimensions: { width: W, height: H },
-        gap,
-      })
+      // Create uniform-fill layout: items stretch to fill entire container
+      // Like a CSS grid with equal rows/columns, no aspect ratio constraint
+      const availW = W - gap * 2
+      const availH = H - gap * 2
+
+      // Layout: 1 col for <=2 items, 2 cols for 3+
+      const gridCols = itemsOnPage <= 2 ? 1 : 2
+      const gridRows = Math.ceil(itemsOnPage / gridCols)
+      const cellW = (availW - (gridCols - 1) * gap) / gridCols
+      const cellH = (availH - (gridRows - 1) * gap) / gridRows
+
+      // Items in the last row stretch to fill the full width
+      const itemsInLastRow = itemsOnPage % gridCols || gridCols
+      const lastRowCellW = itemsInLastRow < gridCols
+        ? (availW - (itemsInLastRow - 1) * gap) / itemsInLastRow
+        : cellW
 
       // Map original index to gallery position
       const indexToGalleryPos = new Map<number, number>()
@@ -699,22 +708,35 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
         indexToGalleryPos.set(origIdx, galIdx)
       })
 
-      const getItemDimensions = (index: number) =>
-        visibleSet.has(index)
-          ? { width: galleryGrid.width, height: galleryGrid.height }
-          : { width: 0, height: 0 }
+      const lastRowStartIdx = (gridRows - 1) * gridCols
+      const isInLastRow = (galIdx: number) => galIdx >= lastRowStartIdx
+
+      const getItemDimensions = (index: number) => {
+        const galPos = indexToGalleryPos.get(index)
+        if (galPos === undefined) return { width: 0, height: 0 }
+        const w = isInLastRow(galPos) ? lastRowCellW : cellW
+        return { width: w, height: cellH }
+      }
+
+      const getPosition = (index: number): Position => {
+        const galPos = indexToGalleryPos.get(index)
+        if (galPos === undefined) return { top: -9999, left: -9999 }
+        const row = Math.floor(galPos / gridCols)
+        const col = galPos % gridCols
+        const isLast = isInLastRow(galPos)
+        const w = isLast ? lastRowCellW : cellW
+        const left = gap + col * (w + gap)
+        const top = gap + row * (cellH + gap)
+        return { top, left }
+      }
 
       return {
-        width: galleryGrid.width,
-        height: galleryGrid.height,
-        rows: galleryGrid.rows,
-        cols: galleryGrid.cols,
+        width: cellW,
+        height: cellH,
+        rows: gridRows,
+        cols: gridCols,
         layoutMode: 'gallery' as LayoutMode,
-        getPosition: (index: number) => {
-          const galPos = indexToGalleryPos.get(index)
-          if (galPos === undefined) return { top: -9999, left: -9999 }
-          return galleryGrid.getPosition(galPos)
-        },
+        getPosition,
         getItemDimensions,
         isMainItem: () => false,
         pagination: {
@@ -771,27 +793,8 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
     const isMobilePin = W < 500
 
     if (isMobilePin && isPortrait && visibleOthers > 0) {
-      // Mobile portrait pin: ITEMS-FIRST approach
-      // Calculate thumbs at full width with correct ratio, then size area to fit
-      const mobileCols = Math.min(visibleOthers, 2)
-      const mobileRows = Math.ceil(visibleOthers / mobileCols)
-      let thumbW = (areaW - (mobileCols - 1) * gap) / mobileCols
-      let thumbH = thumbW * ratio
-
-      // Required area to fit these items
-      let neededH = mobileRows * thumbH + (mobileRows - 1) * gap
-
-      // Cap: others can take at most 70% — pin still gets at least 30%
-      const maxOthersH = H * 0.7
-      if (neededH > maxOthersH) {
-        neededH = maxOthersH
-        // Recalculate thumb size to fit within capped area
-        const availThumbH = (neededH - (mobileRows - 1) * gap) / mobileRows
-        thumbH = availThumbH
-        thumbW = thumbH / ratio
-      }
-
-      othersAreaHeight = neededH
+      // Mobile portrait pin: fixed 60/40 split — pin gets ~60%, others get ~40%
+      othersAreaHeight = H * 0.4 - gap
       othersAreaWidth = areaW
     } else {
       // Non-mobile or landscape: search for best layout
@@ -910,17 +913,11 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
     if (visibleOthers > 0) {
       if (isVertical) {
         if (isMobileOthers && isPortrait) {
-          // Mobile: items fill width, respect aspect ratio
-          thumbCols = Math.min(visibleOthers, 2)
+          // Mobile portrait: uniform-fill — items stretch to fill entire others area
+          thumbCols = visibleOthers <= 2 ? 1 : Math.min(visibleOthers, 2)
           thumbRows = Math.ceil(visibleOthers / thumbCols)
-          const maxW = (othersAreaWidth - (thumbCols - 1) * gap) / thumbCols
-          const maxH = (othersAreaHeight - (thumbRows - 1) * gap) / thumbRows
-          thumbWidth = maxW
-          thumbHeight = thumbWidth * ratio
-          if (thumbHeight > maxH) {
-            thumbHeight = maxH
-            thumbWidth = thumbHeight / ratio
-          }
+          thumbWidth = (othersAreaWidth - (thumbCols - 1) * gap) / thumbCols
+          thumbHeight = (othersAreaHeight - (thumbRows - 1) * gap) / thumbRows
         } else {
           // Normal: search for best layout maintaining ratio
           let bestScore = -1
@@ -982,6 +979,13 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
       }
     }
 
+    // Last row stretching for mobile portrait uniform-fill
+    const itemsInLastRow = itemsOnPage % thumbCols || thumbCols
+    const useUniformFill = isMobileOthers && isPortrait && isVertical
+    const lastRowThumbW = useUniformFill && itemsInLastRow < thumbCols
+      ? (othersAreaWidth - (itemsInLastRow - 1) * gap) / itemsInLastRow
+      : thumbWidth
+
     // Calculate grid start position
     const totalGridWidth = thumbCols * thumbWidth + (thumbCols - 1) * gap
     const totalGridHeight = thumbRows * thumbHeight + (thumbRows - 1) * gap
@@ -990,11 +994,11 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
     let gridStartTop: number
 
     if (isVertical) {
-      gridStartLeft = gap + (othersAreaWidth - totalGridWidth) / 2
+      gridStartLeft = useUniformFill ? gap : gap + (othersAreaWidth - totalGridWidth) / 2
       gridStartTop =
         effectivePosition === 'top'
-          ? gap + (othersAreaHeight - totalGridHeight) / 2
-          : mainHeight + gap * 2 + (othersAreaHeight - totalGridHeight) / 2
+          ? useUniformFill ? gap : gap + (othersAreaHeight - totalGridHeight) / 2
+          : useUniformFill ? mainHeight + gap * 2 : mainHeight + gap * 2 + (othersAreaHeight - totalGridHeight) / 2
     } else {
       gridStartLeft =
         effectivePosition === 'left'
@@ -1014,11 +1018,19 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
         const row = Math.floor(pageRelativeIndex / thumbCols)
         const col = pageRelativeIndex % thumbCols
 
-        // Center last incomplete row
-        const itemsInLastRow = itemsOnPage % thumbCols || thumbCols
-        let rowLeft = gridStartLeft
         const lastRowIndex = Math.ceil(itemsOnPage / thumbCols) - 1
-        if (row === lastRowIndex && itemsInLastRow < thumbCols) {
+        const isLastRow = row === lastRowIndex && itemsInLastRow < thumbCols
+
+        let itemW: number
+        let rowLeft: number
+
+        if (useUniformFill && isLastRow) {
+          // Uniform-fill: last row items stretch to full width
+          itemW = lastRowThumbW
+          rowLeft = gridStartLeft
+        } else if (!useUniformFill && isLastRow) {
+          // Standard: center last incomplete row
+          itemW = thumbWidth
           const rowWidth = itemsInLastRow * thumbWidth + (itemsInLastRow - 1) * gap
           if (isVertical) {
             rowLeft = gap + (othersAreaWidth - rowWidth) / 2
@@ -1027,14 +1039,17 @@ function createFlexiblePinGrid(options: MeetGridOptions): MeetGridResult {
               (effectivePosition === 'left' ? gap : mainWidth + gap * 2) +
               (othersAreaWidth - rowWidth) / 2
           }
+        } else {
+          itemW = thumbWidth
+          rowLeft = gridStartLeft
         }
 
         positions[i] = {
           position: {
             top: gridStartTop + row * (thumbHeight + gap),
-            left: rowLeft + col * (thumbWidth + gap),
+            left: rowLeft + col * (itemW + gap),
           },
-          dimensions: { width: thumbWidth, height: thumbHeight },
+          dimensions: { width: itemW, height: thumbHeight },
         }
       } else {
         positions[i] = {
@@ -1599,7 +1614,76 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
 
       const effectiveCount = visibleCount
 
-      // Standard uniform grid
+      // Mobile + pagination: use uniform-fill layout (items stretch to fill entire container)
+      // Same behavior as pinOnly pages — items fill width, last row stretches
+      if (isMobile && pagination.enabled && effectiveCount > 0) {
+        const { width: cW, height: cH } = options.dimensions
+        const gap = options.gap
+        const availW = cW - gap * 2
+        const availH = cH - gap * 2
+
+        // Layout: 1 col for <=2 items, 2 cols for 3+
+        const gridCols = effectiveCount <= 2 ? 1 : 2
+        const gridRows = Math.ceil(effectiveCount / gridCols)
+        const cellW = (availW - (gridCols - 1) * gap) / gridCols
+        const cellH = (availH - (gridRows - 1) * gap) / gridRows
+
+        // Items in the last row stretch to fill the full width
+        const itemsInLastRow = effectiveCount % gridCols || gridCols
+        const lastRowCellW = itemsInLastRow < gridCols
+          ? (availW - (itemsInLastRow - 1) * gap) / itemsInLastRow
+          : cellW
+
+        const lastRowStartIdx = (gridRows - 1) * gridCols
+        const isInLastRow = (relIdx: number) => relIdx >= lastRowStartIdx
+
+        const getPosition = (index: number): Position => {
+          const relativeIndex = index - startIndex
+          if (relativeIndex < 0 || relativeIndex >= effectiveCount) {
+            return { top: -9999, left: -9999 }
+          }
+          const row = Math.floor(relativeIndex / gridCols)
+          const col = relativeIndex % gridCols
+          const isLast = isInLastRow(relativeIndex)
+          const w = isLast ? lastRowCellW : cellW
+          const left = gap + col * (w + gap)
+          const top = gap + row * (cellH + gap)
+          return { top, left }
+        }
+
+        const getItemDimensions = (index: number) => {
+          const relativeIndex = index - startIndex
+          if (relativeIndex < 0 || relativeIndex >= effectiveCount) {
+            return { width: 0, height: 0 }
+          }
+          const w = isInLastRow(relativeIndex) ? lastRowCellW : cellW
+          return { width: w, height: cellH }
+        }
+
+        const lastVisibleIndex = endIndex - 1
+
+        return {
+          width: cellW,
+          height: cellH,
+          rows: gridRows,
+          cols: gridCols,
+          layoutMode: 'gallery' as LayoutMode,
+          getPosition,
+          getItemDimensions,
+          isMainItem: () => false,
+          pagination,
+          isItemVisible: (index: number) => index >= startIndex && index < endIndex,
+          hiddenCount,
+          getLastVisibleOthersIndex: () => (hiddenCount > 0 ? lastVisibleIndex : -1),
+          getItemContentDimensions: createGetItemContentDimensions(
+            getItemDimensions,
+            options.itemAspectRatios,
+            options.aspectRatio
+          ),
+        }
+      }
+
+      // Standard uniform grid (desktop or non-paginated)
       const grid = createGrid({ ...options, count: effectiveCount })
 
       // Create position getter that maps original index to relative index
