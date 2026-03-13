@@ -150,6 +150,16 @@ export const GridContainer = defineComponent({
       type: Boolean,
       default: false,
     },
+    /**
+     * Disable the floating PiP in 2-person mode.
+     * When true, 2 participants are laid out in a standard gallery grid
+     * instead of one full-screen + one draggable floating PiP.
+     * @default false
+     */
+    disableFloat: {
+      type: Boolean,
+      default: false,
+    },
 
     /** HTML tag to render */
     tag: {
@@ -179,6 +189,7 @@ export const GridContainer = defineComponent({
       floatBreakpoints: props.floatBreakpoints,
       pipIndex: props.pipIndex,
       pinOnly: props.pinOnly,
+      disableFloat: props.disableFloat,
     }))
 
     const grid = useMeetGrid(gridOptions)

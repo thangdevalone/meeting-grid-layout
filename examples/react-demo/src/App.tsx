@@ -85,6 +85,7 @@ export default function App() {
   const [flexMode, setFlexMode] = useState(false)
   const [pipIndex, setPipIndex] = useState(1)
   const [pinOnly, setPinOnly] = useState(false)
+  const [floatingPipEnabled, setFloatingPipEnabled] = useState(true)
 
   // Responsive floating size
   const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 768px)').matches)
@@ -467,8 +468,23 @@ export default function App() {
             </div>
           )}
 
+          {/* Floating PiP toggle */}
+          {layoutMode === 'gallery' && (
+            <div className="control-group">
+              <span className="control-label">Floating PiP</span>
+              <div className="control-buttons">
+                <button
+                  className={`btn ${floatingPipEnabled ? 'active' : ''}`}
+                  onClick={() => setFloatingPipEnabled(!floatingPipEnabled)}
+                >
+                  {floatingPipEnabled ? 'On' : 'Off'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* PiP Index (for 2-person mode) */}
-          {layoutMode === 'gallery' && participants.length === 2 && pinnedIndex === null && (
+          {layoutMode === 'gallery' && participants.length === 2 && pinnedIndex === null && floatingPipEnabled && (
             <div className="control-group">
               <span className="control-label">PiP</span>
               <div className="control-buttons">
@@ -646,6 +662,7 @@ export default function App() {
             currentVisiblePage={othersPage}
             pipIndex={pipIndex}
             pinOnly={pinOnly}
+            disableFloat={!floatingPipEnabled}
           >
             {participants.map((participant, index) => (
               <GridItem key={participant.id} index={index}>

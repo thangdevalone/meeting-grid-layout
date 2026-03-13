@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <img src="https://img.shields.io/npm/v/@thangdevalone/meeting-grid-layout-core?color=blue&label=core" alt="npm core" />
   <img src="https://img.shields.io/npm/v/@thangdevalone/meeting-grid-layout-react?color=blue&label=react" alt="npm react" />
   <img src="https://img.shields.io/npm/v/@thangdevalone/meeting-grid-layout-vue?color=blue&label=vue" alt="npm vue" />
@@ -479,6 +479,18 @@ In 2-person mode, `pipIndex` selects which participant becomes the floating PiP 
 | ---------- | ------------------ | ------------ |
 | `0`        | Participant 1      | Participant 0 |
 | `1` (default) | Participant 0   | Participant 1 |
+
+### `disableFloat` — Turning off auto PiP
+
+Set `disableFloat={true}` to disable the automatic Floating PiP in 2-person mode. When disabled, both participants are laid out in a standard gallery grid instead of one full-screen + one draggable PiP.
+
+```tsx
+// Normal 2-person mode (PiP enabled by default)
+<GridContainer count={2}>...</GridContainer>
+
+// Disable PiP — show standard gallery grid with 2 tiles
+<GridContainer count={2} disableFloat={true}>...</GridContainer>
+```
 
 ### `GridOverlay` Props
 

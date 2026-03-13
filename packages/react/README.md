@@ -53,6 +53,7 @@ Wraps the grid, computes layout, and provides context to children.
 | `floatBreakpoints`   | `PipBreakpoint[]`                         | -           | Responsive breakpoints for auto-float PiP (see [Responsive PiP](#responsive-pip)) |
 | `pipIndex`           | `number`                                  | `1`         | Which participant (0 or 1) is the floating PiP in 2-person mode    |
 | `pinOnly`            | `boolean`                                 | `false`     | Mobile/tablet pin-only mode: page 0 = pinned full-screen, page 1+ = others gallery (≤1024px) |
+| `disableFloat`       | `boolean`                                 | `false`     | Disable Floating PiP in 2-person mode; shows standard gallery grid instead |
 
 ### `<GridItem>`
 

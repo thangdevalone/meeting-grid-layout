@@ -85,6 +85,13 @@ export interface GridContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
    * @default false
    */
   pinOnly?: boolean
+  /**
+   * Disable the floating PiP in 2-person mode.
+   * When true, 2 participants are laid out in a standard gallery grid
+   * instead of one full-screen + one draggable floating PiP.
+   * @default false
+   */
+  disableFloat?: boolean
 }
 
 /**
@@ -113,6 +120,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     floatBreakpoints,
     pipIndex,
     pinOnly,
+    disableFloat,
 
     ...props
   },
@@ -143,6 +151,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     floatBreakpoints,
     pipIndex,
     pinOnly,
+    disableFloat,
   }
 
   const grid = useMeetGrid(gridOptions)

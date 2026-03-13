@@ -80,6 +80,7 @@ const floatingIndex = ref(0) // Which participant to show as floating (default: 
 const flexMode = ref(false)
 const pipIndex = ref(1)
 const pinOnly = ref(false)
+const floatingPipEnabled = ref(true)
 
 // Responsive floating size
 const isMobile = ref(window.matchMedia('(max-width: 768px)').matches)
@@ -460,9 +461,22 @@ const zoomItemAspectRatios = computed(() =>
           </div>
         </div>
 
-        <!-- PiP Index (for 2-person mode) -->
+        <!-- Floating PiP toggle (always visible in gallery mode) -->
+        <div v-if="layoutMode === 'gallery'" class="control-group">
+          <span class="control-label">Floating PiP</span>
+          <div class="control-buttons">
+            <button
+              :class="['btn', { active: floatingPipEnabled }]"
+              @click="floatingPipEnabled = !floatingPipEnabled"
+            >
+              {{ floatingPipEnabled ? 'On' : 'Off' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- PiP Index selector (only when floating is enabled + 2 participants) -->
         <div
-          v-if="layoutMode === 'gallery' && participants.length === 2 && pinnedIndex === null"
+          v-if="layoutMode === 'gallery' && participants.length === 2 && pinnedIndex === null && floatingPipEnabled"
           class="control-group"
         >
           <span class="control-label">PiP</span>
@@ -634,6 +648,7 @@ const zoomItemAspectRatios = computed(() =>
         :item-aspect-ratios="itemAspectRatios"
         :pip-index="pipIndex"
         :pin-only="pinOnly"
+        :disable-float="!floatingPipEnabled"
       >
         <GridItem
           v-for="(participant, index) in participants"

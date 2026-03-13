@@ -126,6 +126,13 @@ export interface MeetGridOptions extends GridOptions {
    * @default false
    */
   pinOnly?: boolean
+  /**
+   * Disable the floating PiP in 2-person mode.
+   * When true, 2 participants are laid out in a standard gallery grid
+   * instead of one full-screen + one draggable floating PiP.
+   * @default false
+   */
+  disableFloat?: boolean
 }
 
 /**
@@ -1487,7 +1494,8 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
       // 2-person mode: Zoom-style float layout
       // One person fills entire container edge-to-edge (like zoom mode with gap=0)
       // The other becomes draggable floating PiP (controlled by pipIndex)
-      if (count === 2) {
+      // Skip when disableFloat is true — fall through to standard gallery grid
+      if (count === 2 && !options.disableFloat) {
         const { width: W, height: H } = options.dimensions
 
         // Determine which index is float and which is main

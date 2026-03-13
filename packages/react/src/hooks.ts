@@ -109,6 +109,7 @@ export function useMeetGrid(options: MeetGridOptions): MeetGridResult {
     options.currentVisiblePage,
     options.pinOnly,
     options.pipIndex,
+    options.disableFloat,
     options.floatWidth,
     options.floatHeight,
     floatBreakpointsKey,
