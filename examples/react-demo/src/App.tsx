@@ -86,6 +86,8 @@ export default function App() {
   const [pipIndex, setPipIndex] = useState(1)
   const [pinOnly, setPinOnly] = useState(false)
   const [floatingPipEnabled, setFloatingPipEnabled] = useState(true)
+  const [disableAnimation, setDisableAnimation] = useState(false)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Responsive floating size
   const [isMobile, setIsMobile] = useState(window.matchMedia('(max-width: 768px)').matches)
@@ -229,7 +231,7 @@ export default function App() {
       {/* Header with controls */}
       <header className="header">
         <div className="header-left">
-          <div>
+          <div className="header-title-wrapper">
             <h1 className="header-title">Meet Layout Grid</h1>
             <p className="header-subtitle">React Demo with Motion Animations</p>
           </div>
@@ -241,9 +243,27 @@ export default function App() {
           >
             Star on GitHub
           </a>
+          <button 
+            className="btn btn-icon mobile-settings-btn" 
+            onClick={() => setIsDrawerOpen(true)}
+            aria-label="Settings"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
         </div>
 
-        <div className="controls">
+        <div 
+          className={`drawer-overlay ${isDrawerOpen ? 'open' : ''}`} 
+          onClick={() => setIsDrawerOpen(false)}
+        ></div>
+        <div className={`controls-container ${isDrawerOpen ? 'open' : ''}`}>
+          <div className="drawer-header">
+            <h3>Layout Settings</h3>
+            <button className="btn btn-icon" onClick={() => setIsDrawerOpen(false)} aria-label="Close">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+          <div className="controls">
           {/* Participants control */}
           <div className="control-group">
             <span className="control-label">Participants</span>
@@ -500,6 +520,20 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* Disable Animation toggle */}
+          <div className="control-group">
+            <span className="control-label">Animation</span>
+            <div className="control-buttons">
+              <button
+                className={`btn ${!disableAnimation ? 'active' : ''}`}
+                onClick={() => setDisableAnimation(!disableAnimation)}
+              >
+                {disableAnimation ? 'Off' : 'On'}
+              </button>
+            </div>
+          </div>
+          </div>
         </div>
       </header>
 
@@ -515,6 +549,7 @@ export default function App() {
             pinnedIndex={pinnedIndex}
             count={participants.length}
             springPreset="smooth"
+            disableAnimation={disableAnimation}
             itemAspectRatios={participants.map((_, i) => (i === pinnedIndex ? 'auto' : '16:9'))}
           >
             {/* Pinned participant fills the screen */}
@@ -663,6 +698,7 @@ export default function App() {
             pipIndex={pipIndex}
             pinOnly={pinOnly}
             disableFloat={!floatingPipEnabled}
+            disableAnimation={disableAnimation}
           >
             {participants.map((participant, index) => (
               <GridItem key={participant.id} index={index}>

@@ -92,6 +92,13 @@ export interface GridContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
    * @default false
    */
   disableFloat?: boolean
+  /**
+   * Disable all animations globally.
+   * When true, all grid items and float items render without
+   * spring/transition animations. Items snap to positions instantly.
+   * @default false
+   */
+  disableAnimation?: boolean
 }
 
 /**
@@ -121,6 +128,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     pipIndex,
     pinOnly,
     disableFloat,
+    disableAnimation = false,
 
     ...props
   },
@@ -165,7 +173,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
   }
 
   return (
-    <GridContext.Provider value={{ dimensions, grid, springPreset }}>
+    <GridContext.Provider value={{ dimensions, grid, springPreset, disableAnimation }}>
       <div ref={ref} style={containerStyle} className={className} {...props}>
         {children}
       </div>
@@ -254,7 +262,10 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
   },
   ref
 ) {
-  const { grid, springPreset, dimensions: containerDimensions } = useGridContext()
+  const { grid, springPreset, dimensions: containerDimensions, disableAnimation: containerDisableAnimation } = useGridContext()
+
+  // Merge container-level and item-level disableAnimation
+  const noAnimation = containerDisableAnimation || disableAnimation
 
   // Compute all grid-derived values upfront (safe even when grid is null)
   // so that hooks below can reference them without conditional returns before hooks
@@ -340,9 +351,14 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
       containerDimensions.height > 0
     ) {
       const pos = getFloatCornerPos(floatAnchor)
-      const cfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-      animate(floatX, pos.x, cfg)
-      animate(floatY, pos.y, cfg)
+      if (noAnimation) {
+        floatX.set(pos.x)
+        floatY.set(pos.y)
+      } else {
+        const cfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+        animate(floatX, pos.x, cfg)
+        animate(floatY, pos.y, cfg)
+      }
     }
   }, [
     isFloat,
@@ -377,6 +393,10 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
       gridX.set(position.left)
       gridY.set(position.top)
       gridAnimReady.current = true
+    } else if (noAnimation) {
+      // Animation disabled: set property immediately
+      gridX.set(position.left)
+      gridY.set(position.top)
     } else {
       // Subsequent changes: spring animate position
       const cfg = {
@@ -453,9 +473,14 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
       const nearestCorner = findNearestCorner(currentX, currentY)
       setFloatAnchor(nearestCorner)
       const snapPos = getFloatCornerPos(nearestCorner)
-      const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-      animate(floatX, snapPos.x, springCfg)
-      animate(floatY, snapPos.y, springCfg)
+      if (noAnimation) {
+        floatX.set(snapPos.x)
+        floatY.set(snapPos.y)
+      } else {
+        const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+        animate(floatX, snapPos.x, springCfg)
+        animate(floatY, snapPos.y, springCfg)
+      }
     }
 
     const floatingStyle: CSSProperties = {
@@ -484,8 +509,8 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
         style={{ ...floatingStyle, x: floatX, y: floatY }}
         className={className}
         onDragEnd={handleDragEnd}
-        whileDrag={{ cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
-        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        whileDrag={noAnimation ? { cursor: 'grabbing' } : { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+        transition={noAnimation ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 }}
         data-grid-index={index}
         data-grid-float={true}
         {...props}
@@ -495,7 +520,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
     )
   }
 
-  if (disableAnimation) {
+  if (noAnimation) {
     return (
       <div
         ref={ref}
@@ -518,7 +543,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
   }
 
   // Grid mode: hybrid animation approach
-  // - Position: motion values (x/y CSS transforms) → GPU-accelerated, no mount animation
+  // - Position: motion values (x/y = CSS transforms, GPU-accelerated) → GPU-accelerated, no mount animation
   // - Size: animate prop → spring animation handled by Motion
   // initial = animate on mount → no mount animation for size
   // Subsequent animate changes → Motion springs from previous to new size
@@ -528,7 +553,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
       ref={ref}
       initial={{ width: itemDims.width, height: itemDims.height }}
       animate={{ width: itemDims.width, height: itemDims.height }}
-      transition={transition}
+      transition={noAnimation ? { duration: 0 } : transition}
       style={{ position: 'absolute', top: 0, left: 0, x: gridX, y: gridY, ...style }}
       className={className}
       data-grid-index={index}
@@ -620,7 +645,7 @@ export const FloatingGridItem = forwardRef<HTMLDivElement, FloatingGridItemProps
     },
     ref
   ) {
-    const { dimensions } = useGridContext()
+    const { dimensions, disableAnimation: containerDisableAnimation } = useGridContext()
     const [currentAnchor, setCurrentAnchor] = React.useState(initialAnchor)
 
     // Resolve responsive size from breakpoints (if provided), otherwise use fixed width/height
@@ -676,9 +701,14 @@ export const FloatingGridItem = forwardRef<HTMLDivElement, FloatingGridItemProps
     React.useEffect(() => {
       if (isInitialized && dimensions.width > 0 && dimensions.height > 0) {
         const pos = getCornerPosition(currentAnchor)
-        const springConfig = { type: 'spring' as const, stiffness: 400, damping: 30 }
-        animate(x, pos.x, springConfig)
-        animate(y, pos.y, springConfig)
+        if (containerDisableAnimation) {
+          x.set(pos.x)
+          y.set(pos.y)
+        } else {
+          const springConfig = { type: 'spring' as const, stiffness: 400, damping: 30 }
+          animate(x, pos.x, springConfig)
+          animate(y, pos.y, springConfig)
+        }
       }
     }, [currentAnchor, dimensions.width, dimensions.height, getCornerPosition, isInitialized, x, y])
 
@@ -740,9 +770,14 @@ export const FloatingGridItem = forwardRef<HTMLDivElement, FloatingGridItemProps
 
       // Animate to corner position
       const snapPos = getCornerPosition(nearestCorner)
-      const springConfig = { type: 'spring' as const, stiffness: 400, damping: 30 }
-      animate(x, snapPos.x, springConfig)
-      animate(y, snapPos.y, springConfig)
+      if (containerDisableAnimation) {
+        x.set(snapPos.x)
+        y.set(snapPos.y)
+      } else {
+        const springConfig = { type: 'spring' as const, stiffness: 400, damping: 30 }
+        animate(x, snapPos.x, springConfig)
+        animate(y, snapPos.y, springConfig)
+      }
     }
 
     return (
@@ -755,8 +790,8 @@ export const FloatingGridItem = forwardRef<HTMLDivElement, FloatingGridItemProps
         style={{ ...floatingStyle, x, y }}
         className={className}
         onDragEnd={handleDragEnd}
-        whileDrag={{ cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
-        transition={transition ?? { type: 'spring', stiffness: 400, damping: 30 }}
+        whileDrag={containerDisableAnimation ? { cursor: 'grabbing' } : { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+        transition={containerDisableAnimation ? { duration: 0 } : (transition ?? { type: 'spring', stiffness: 400, damping: 30 })}
         {...props}
       >
         {children}

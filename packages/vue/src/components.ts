@@ -32,6 +32,7 @@ export interface GridContextValue {
   grid: ComputedRef<MeetGridResult>
   springPreset: SpringPreset
   dimensions: Ref<GridDimensions>
+  disableAnimation: boolean
 }
 
 export const GridContextKey: InjectionKey<GridContextValue> = Symbol('MeetGridContext')
@@ -160,6 +161,16 @@ export const GridContainer = defineComponent({
       type: Boolean,
       default: false,
     },
+    /**
+     * Disable all animations globally.
+     * When true, all grid items and float items render without
+     * spring/transition animations. Items snap to positions instantly.
+     * @default false
+     */
+    disableAnimation: {
+      type: Boolean,
+      default: false,
+    },
 
     /** HTML tag to render */
     tag: {
@@ -199,6 +210,7 @@ export const GridContainer = defineComponent({
       grid,
       springPreset: props.springPreset,
       dimensions,
+      disableAnimation: props.disableAnimation,
     })
 
     return () =>
@@ -254,7 +266,10 @@ export const GridItem = defineComponent({
       return () => null
     }
 
-    const { grid, springPreset, dimensions: containerDimensions } = context
+    const { grid, springPreset, dimensions: containerDimensions, disableAnimation: containerDisableAnimation } = context
+
+    // Merge container-level and item-level disableAnimation
+    const noAnimation = computed(() => containerDisableAnimation || props.disableAnimation)
 
     const position = computed(() => grid.value.getPosition(props.index))
     const dimensions = computed(() => grid.value.getItemDimensions(props.index))
@@ -344,9 +359,14 @@ export const GridItem = defineComponent({
       ([, w, h]) => {
         if (isFloat.value && floatInitialized.value && w > 0 && h > 0) {
           const pos = getFloatCornerPos(floatAnchor.value)
-          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-          animate(x, pos.x, springCfg)
-          animate(y, pos.y, springCfg)
+          if (noAnimation.value) {
+            x.set(pos.x)
+            y.set(pos.y)
+          } else {
+            const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+            animate(x, pos.x, springCfg)
+            animate(y, pos.y, springCfg)
+          }
         }
       }
     )
@@ -388,6 +408,10 @@ export const GridItem = defineComponent({
           gridX.set(pos.left)
           gridY.set(pos.top)
           gridAnimReady.value = true
+        } else if (noAnimation.value) {
+          // Animation disabled: set position immediately
+          gridX.set(pos.left)
+          gridY.set(pos.top)
         } else {
           // Subsequent changes: spring animate position
           const cfg = {
@@ -433,9 +457,14 @@ export const GridItem = defineComponent({
           const nearestCorner = findFloatNearestCorner(currentX, currentY)
           floatAnchor.value = nearestCorner
           const snapPos = getFloatCornerPos(nearestCorner)
-          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-          animate(x, snapPos.x, springCfg)
-          animate(y, snapPos.y, springCfg)
+          if (noAnimation.value) {
+            x.set(snapPos.x)
+            y.set(snapPos.y)
+          } else {
+            const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+            animate(x, snapPos.x, springCfg)
+            animate(y, snapPos.y, springCfg)
+          }
         }
 
         return h(
@@ -462,8 +491,8 @@ export const GridItem = defineComponent({
               x: x,
               y: y,
             },
-            whileDrag: { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
-            transition: { type: 'spring', stiffness: 400, damping: 30 },
+            whileDrag: noAnimation.value ? { cursor: 'grabbing' } : { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+            transition: noAnimation.value ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 },
             'data-grid-index': props.index,
             'data-grid-float': true,
             onDragEnd: handleDragEnd,
@@ -475,7 +504,7 @@ export const GridItem = defineComponent({
       const itemWidth = dimensions.value.width
       const itemHeight = dimensions.value.height
 
-      if (props.disableAnimation) {
+      if (noAnimation.value) {
         return h(
           props.tag,
           {
@@ -628,7 +657,7 @@ export const FloatingGridItem = defineComponent({
       return () => null
     }
 
-    const { dimensions } = context
+    const { dimensions, disableAnimation: containerDisableAnimation } = context
     const currentAnchor = ref(props.anchor)
 
     // Resolve responsive size from breakpoints (if provided), otherwise use fixed width/height
@@ -717,9 +746,14 @@ export const FloatingGridItem = defineComponent({
         if (isInitialized.value && w > 0 && h > 0 && newAnchor !== currentAnchor.value) {
           currentAnchor.value = newAnchor
           const pos = getCornerPosition(newAnchor)
-          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-          animate(x, pos.x, springCfg)
-          animate(y, pos.y, springCfg)
+          if (containerDisableAnimation) {
+            x.set(pos.x)
+            y.set(pos.y)
+          } else {
+            const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+            animate(x, pos.x, springCfg)
+            animate(y, pos.y, springCfg)
+          }
         }
       }
     )
@@ -730,9 +764,14 @@ export const FloatingGridItem = defineComponent({
       () => {
         if (isInitialized.value && containerDimensions.value.width > 0 && containerDimensions.value.height > 0) {
           const pos = getCornerPosition(currentAnchor.value)
-          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-          animate(x, pos.x, springCfg)
-          animate(y, pos.y, springCfg)
+          if (containerDisableAnimation) {
+            x.set(pos.x)
+            y.set(pos.y)
+          } else {
+            const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+            animate(x, pos.x, springCfg)
+            animate(y, pos.y, springCfg)
+          }
         }
       }
     )
@@ -762,9 +801,14 @@ export const FloatingGridItem = defineComponent({
         currentAnchor.value = nearestCorner
         emit('anchorChange', nearestCorner)
         const snapPos = getCornerPosition(nearestCorner)
-        const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-        animate(x, snapPos.x, springCfg)
-        animate(y, snapPos.y, springCfg)
+        if (containerDisableAnimation) {
+          x.set(snapPos.x)
+          y.set(snapPos.y)
+        } else {
+          const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
+          animate(x, snapPos.x, springCfg)
+          animate(y, snapPos.y, springCfg)
+        }
       }
 
       return h(
@@ -789,8 +833,8 @@ export const FloatingGridItem = defineComponent({
             x: x,
             y: y,
           },
-          whileDrag: { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
-          transition: { type: 'spring', stiffness: 400, damping: 30 },
+          whileDrag: containerDisableAnimation ? { cursor: 'grabbing' } : { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+          transition: containerDisableAnimation ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 },
           onDragEnd: handleDragEnd,
         },
         slots.default?.()

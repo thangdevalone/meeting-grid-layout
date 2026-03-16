@@ -81,6 +81,8 @@ const flexMode = ref(false)
 const pipIndex = ref(1)
 const pinOnly = ref(false)
 const floatingPipEnabled = ref(true)
+const disableAnimation = ref(false)
+const isDrawerOpen = ref(false)
 
 // Responsive floating size
 const isMobile = ref(window.matchMedia('(max-width: 768px)').matches)
@@ -300,7 +302,7 @@ const zoomItemAspectRatios = computed(() =>
     <!-- Header with controls -->
     <header class="header">
       <div class="header-left">
-        <div>
+        <div class="header-title-wrapper">
           <h1 class="header-title">Meet Layout Grid</h1>
           <p class="header-subtitle">Vue 3 Demo with Motion Animations</p>
         </div>
@@ -312,9 +314,27 @@ const zoomItemAspectRatios = computed(() =>
         >
           Star on GitHub
         </a>
+        <button 
+          class="btn btn-icon mobile-settings-btn" 
+          @click="isDrawerOpen = true"
+          aria-label="Settings"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
       </div>
 
-      <div class="controls">
+      <div 
+        :class="['drawer-overlay', { open: isDrawerOpen }]" 
+        @click="isDrawerOpen = false"
+      ></div>
+      <div :class="['controls-container', { open: isDrawerOpen }]">
+        <div class="drawer-header">
+          <h3>Layout Settings</h3>
+          <button class="btn btn-icon" @click="isDrawerOpen = false" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div class="controls">
         <!-- Participants control -->
         <div class="control-group">
           <span class="control-label">Participants</span>
@@ -499,6 +519,20 @@ const zoomItemAspectRatios = computed(() =>
             <button class="btn" @click="nextPinned">Next Pinned →</button>
           </div>
         </div>
+
+        <!-- Disable Animation toggle -->
+        <div class="control-group">
+          <span class="control-label">Animation</span>
+          <div class="control-buttons">
+            <button
+              :class="['btn', { active: !disableAnimation }]"
+              @click="disableAnimation = !disableAnimation"
+            >
+              {{ disableAnimation ? 'Off' : 'On' }}
+            </button>
+          </div>
+        </div>
+        </div>
       </div>
     </header>
 
@@ -523,6 +557,7 @@ const zoomItemAspectRatios = computed(() =>
         :pinned-index="pinnedIndex ?? undefined"
         :count="participants.length"
         spring-preset="smooth"
+        :disable-animation="disableAnimation"
         :item-aspect-ratios="zoomItemAspectRatios"
       >
         <!-- Only render the pinned participant -->
@@ -649,6 +684,7 @@ const zoomItemAspectRatios = computed(() =>
         :pip-index="pipIndex"
         :pin-only="pinOnly"
         :disable-float="!floatingPipEnabled"
+        :disable-animation="disableAnimation"
       >
         <GridItem
           v-for="(participant, index) in participants"

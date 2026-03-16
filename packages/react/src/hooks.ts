@@ -16,6 +16,7 @@ interface GridContextValue {
   dimensions: GridDimensions
   grid: MeetGridResult | null
   springPreset: SpringPreset
+  disableAnimation: boolean
 }
 
 const GridContext = createContext<GridContextValue | null>(null)
