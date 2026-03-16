@@ -1725,16 +1725,25 @@ export function createMeetGrid(options: MeetGridOptions): MeetGridResult {
 
 /**
  * Spring animation configuration presets
+ *
+ * Each preset uses stiffness + damping + mass for fundamentally different motion:
+ *
+ * | Preset  | Stiffness | Damping | Mass | ζ (damping ratio) | Character                          |
+ * | ------- | --------- | ------- | ---- | ----------------- | ---------------------------------- |
+ * | snappy  | 800       | 35      | 0.5  | ≈ 0.88            | Instant snap, nearly zero overshoot|
+ * | smooth  | 200       | 26      | 1.0  | ≈ 0.92            | Smooth glide, professional feel    |
+ * | gentle  | 60        | 14      | 1.8  | ≈ 0.67            | Slow drift, heavy/weighted feel    |
+ * | bouncy  | 500       | 8       | 0.6  | ≈ 0.23            | Energetic spring, 3-4 oscillations |
  */
 export const springPresets = {
-  /** Snappy animations for UI interactions */
-  snappy: { stiffness: 400, damping: 30 },
-  /** Smooth animations for layout changes */
-  smooth: { stiffness: 300, damping: 30 },
-  /** Gentle animations for subtle effects */
-  gentle: { stiffness: 200, damping: 25 },
-  /** Bouncy animations for playful effects */
-  bouncy: { stiffness: 400, damping: 15 },
+  /** Instant snap — nearly zero overshoot, feels like 'click into place' */
+  snappy: { stiffness: 800, damping: 35, mass: 0.5 },
+  /** Smooth glide — professional default, subtle cushion at end */
+  smooth: { stiffness: 200, damping: 26, mass: 1 },
+  /** Slow drift — heavy/weighted feel, takes its time to settle */
+  gentle: { stiffness: 60, damping: 14, mass: 1.8 },
+  /** Energetic spring — playful bounce with 3-4 visible oscillations */
+  bouncy: { stiffness: 500, damping: 8, mass: 0.6 },
 } as const
 
 export type SpringPreset = keyof typeof springPresets
