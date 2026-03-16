@@ -54,6 +54,7 @@ Wraps the grid, computes layout, and provides context to children.
 | `pipIndex`           | `number`                                  | `1`         | Which participant (0 or 1) is the floating PiP in 2-person mode    |
 | `pinOnly`            | `boolean`                                 | `false`     | Mobile/tablet pin-only mode: page 0 = pinned full-screen, page 1+ = others gallery (≤1024px) |
 | `disableFloat`       | `boolean`                                 | `false`     | Disable Floating PiP in 2-person mode; shows standard gallery grid instead |
+| `disableAnimation`   | `boolean`                                 | `false`     | Disable all spring/transition animations globally; items snap instantly    |
 
 ### `<GridItem>`
 

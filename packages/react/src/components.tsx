@@ -403,6 +403,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
         type: 'spring' as const,
         stiffness: springConfig.stiffness,
         damping: springConfig.damping,
+        mass: springConfig.mass,
       }
       animate(gridX, position.left, cfg)
       animate(gridY, position.top, cfg)
@@ -416,6 +417,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
     gridY,
     springConfig.stiffness,
     springConfig.damping,
+    springConfig.mass,
   ])
 
   // ── All hooks declared above — safe to do conditional returns below ──
@@ -430,6 +432,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
     type: springConfig.type,
     stiffness: springConfig.stiffness,
     damping: springConfig.damping,
+    mass: springConfig.mass,
   }
 
   // Calculate if this is the last visible "other" item

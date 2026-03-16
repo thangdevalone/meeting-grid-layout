@@ -20,6 +20,7 @@ import {
   provide,
   ref,
   Ref,
+  toRef,
   watch,
 } from 'vue'
 import { useGridDimensions, useMeetGrid } from './composables'
@@ -30,9 +31,9 @@ import { useGridDimensions, useMeetGrid } from './composables'
 
 export interface GridContextValue {
   grid: ComputedRef<MeetGridResult>
-  springPreset: SpringPreset
+  springPreset: Ref<SpringPreset>
   dimensions: Ref<GridDimensions>
-  disableAnimation: boolean
+  disableAnimation: Ref<boolean>
 }
 
 export const GridContextKey: InjectionKey<GridContextValue> = Symbol('MeetGridContext')
@@ -208,9 +209,9 @@ export const GridContainer = defineComponent({
     // Provide context to children
     provide(GridContextKey, {
       grid,
-      springPreset: props.springPreset,
+      springPreset: toRef(props, 'springPreset'),
       dimensions,
-      disableAnimation: props.disableAnimation,
+      disableAnimation: toRef(props, 'disableAnimation'),
     })
 
     return () =>
@@ -269,7 +270,7 @@ export const GridItem = defineComponent({
     const { grid, springPreset, dimensions: containerDimensions, disableAnimation: containerDisableAnimation } = context
 
     // Merge container-level and item-level disableAnimation
-    const noAnimation = computed(() => containerDisableAnimation || props.disableAnimation)
+    const noAnimation = computed(() => containerDisableAnimation.value || props.disableAnimation)
 
     const position = computed(() => grid.value.getPosition(props.index))
     const dimensions = computed(() => grid.value.getItemDimensions(props.index))
@@ -378,7 +379,7 @@ export const GridItem = defineComponent({
     })
     const hiddenCount = computed(() => grid.value.hiddenCount)
 
-    const springConfig = getSpringConfig(springPreset)
+    const springConfig = computed(() => getSpringConfig(springPreset.value))
 
     // ── Grid mode: motion values for position (matching React exactly) ──
     // Uses x/y (CSS transforms, GPU-accelerated) for position animation.
@@ -394,6 +395,9 @@ export const GridItem = defineComponent({
         () => position.value.left,
         isFloat,
         isHidden,
+        () => springConfig.value.stiffness,
+        () => springConfig.value.damping,
+        () => springConfig.value.mass,
       ],
       ([, , floating, hidden]) => {
         // Skip when in float mode or hidden — reset so re-entry initializes correctly
@@ -416,8 +420,9 @@ export const GridItem = defineComponent({
           // Subsequent changes: spring animate position
           const cfg = {
             type: 'spring' as const,
-            stiffness: springConfig.stiffness,
-            damping: springConfig.damping,
+            stiffness: springConfig.value.stiffness,
+            damping: springConfig.value.damping,
+            mass: springConfig.value.mass,
           }
           animate(gridX, pos.left, cfg)
           animate(gridY, pos.top, cfg)
@@ -522,22 +527,34 @@ export const GridItem = defineComponent({
         )
       }
 
-      // Grid mode: position via motion values, size via CSS
-      // - Position: x/y motion values (CSS transforms, GPU-accelerated, spring animated by watcher)
-      // - Size: CSS style values
+      // Grid mode: hybrid animation approach (matching React)
+      // - Position: motion values (x/y = CSS transforms, GPU-accelerated) → no mount animation
+      // - Size: animate prop → spring animation handled by Motion
+      // initial = animate on mount → no mount animation for size
+      // Subsequent animate changes → Motion springs from previous to new size
       // Key forces Vue to recreate this element when switching float↔grid
+      const transition = noAnimation.value
+        ? { duration: 0 }
+        : {
+            type: 'spring' as const,
+            stiffness: springConfig.value.stiffness,
+            damping: springConfig.value.damping,
+            mass: springConfig.value.mass,
+          }
+
       return h(
         motion.div,
         {
           key: `grid-${props.index}`,
+          initial: { width: itemWidth, height: itemHeight },
+          animate: { width: itemWidth, height: itemHeight },
+          transition,
           style: {
             position: 'absolute',
             top: 0,
             left: 0,
             x: gridX,
             y: gridY,
-            width: `${itemWidth}px`,
-            height: `${itemHeight}px`,
           },
           'data-grid-index': props.index,
           'data-grid-main': isMain.value,
@@ -746,7 +763,7 @@ export const FloatingGridItem = defineComponent({
         if (isInitialized.value && w > 0 && h > 0 && newAnchor !== currentAnchor.value) {
           currentAnchor.value = newAnchor
           const pos = getCornerPosition(newAnchor)
-          if (containerDisableAnimation) {
+          if (containerDisableAnimation.value) {
             x.set(pos.x)
             y.set(pos.y)
           } else {
@@ -801,7 +818,7 @@ export const FloatingGridItem = defineComponent({
         currentAnchor.value = nearestCorner
         emit('anchorChange', nearestCorner)
         const snapPos = getCornerPosition(nearestCorner)
-        if (containerDisableAnimation) {
+        if (containerDisableAnimation.value) {
           x.set(snapPos.x)
           y.set(snapPos.y)
         } else {
@@ -833,8 +850,8 @@ export const FloatingGridItem = defineComponent({
             x: x,
             y: y,
           },
-          whileDrag: containerDisableAnimation ? { cursor: 'grabbing' } : { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
-          transition: containerDisableAnimation ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 },
+          whileDrag: containerDisableAnimation.value ? { cursor: 'grabbing' } : { cursor: 'grabbing', scale: 1.05, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+          transition: containerDisableAnimation.value ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 },
           onDragEnd: handleDragEnd,
         },
         slots.default?.()

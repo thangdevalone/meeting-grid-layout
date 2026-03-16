@@ -57,6 +57,8 @@ Wraps the grid and provides layout via `provide`/`inject`.
 | `float-breakpoints`    | `PipBreakpoint[]`                         | -           | Responsive breakpoints for auto-float PiP (see [Responsive PiP](#responsive-pip)) |
 | `pip-index`            | `number`                                  | `1`         | Which participant (0 or 1) is the floating PiP in 2-person mode      |
 | `pin-only`             | `boolean`                                 | `false`     | Mobile/tablet pin-only mode: page 0 = pinned full-screen, page 1+ = others gallery (≤1024px) |
+| `disable-float`        | `boolean`                                 | `false`     | Disable Floating PiP in 2-person mode; shows standard gallery grid instead |
+| `disable-animation`    | `boolean`                                 | `false`     | Disable all spring/transition animations globally; items snap instantly    |
 | `tag`                  | `string`                                  | `'div'`     | Root HTML element tag                                                |
 
 ### `<GridItem>`
