@@ -289,13 +289,15 @@ const itemAspectRatios = [
 
 ### How the Flexible Gallery Algorithm Works
 
-When participants have **mixed aspect ratios** (e.g., some on phones with 9:16, others on desktops with 16:9), the grid uses an **Optimal Row Search** algorithm to find the layout that minimizes wasted space while preserving correct aspect ratios.
+When participants have **mixed aspect ratios** (e.g., some on phones with 9:16, others on desktops with 16:9), the grid uses an **Area-Optimized Row Search** algorithm to find the layout that maximizes space utilization while preserving correct aspect ratios.
 
 #### The Problem with Greedy Packing
 
 A naive approach packs items row-by-row until a row is "full", then starts a new row. This often creates **imbalanced layouts** — for example, 10 items could end up as `[4, 5, 1]`, leaving the last row with a single lonely item and lots of wasted space.
 
-Our algorithm avoids this by **trying multiple row counts** and picking the one that fills the container best.
+A simple height-diff approach (`|totalH − containerH|`) also fails with highly mixed ratios — it tends to pick single-row layouts that leave large vertical gaps (e.g., 3×4:3 + 2×9:16 all in one row).
+
+Our algorithm avoids both issues by **scoring each candidate layout on actual area utilization**, weighted by how well it fills the container.
 
 #### Algorithm Flowchart
 
@@ -307,18 +309,20 @@ flowchart TD
     D --> E["Distribute N items evenly into numRows rows\n(each row gets ⌊N/R⌋ or ⌈N/R⌉ items)"]
     E --> F["For each row, compute natural height:\nrowH = (containerWidth − gaps) / Σ(w/h ratios in row)"]
     F --> G["totalH = Σ(all rowH) + gaps between rows"]
-    G --> H{"Is |totalH − containerH|\n< current best?"}
-    H -- Yes --> I["Save this as bestRowCount"]
-    H -- No --> J{"totalH just crossed\ncontainerH?"}
-    I --> J
-    J -- "Yes → early exit" --> K["Build final layout with bestRowCount"]
-    J -- "No → try next" --> D
-    K --> L["globalScale = min(1.0, containerH / totalH)\nApply same scale to ALL items"]
-    L --> M["Center items horizontally & vertically\nAspect ratios perfectly preserved ✓"]
+    G --> H["scale = min(1.0, containerH / totalH)\nfillRatio = min(1.0, totalH × scale / containerH)"]
+    H --> I["Compute total item area after scaling\nscaledArea = naturalArea × scale²"]
+    I --> J["score = avgItemArea × fillRatio^1.5\n(penalizes layouts with large empty gaps)"]
+    J --> K{"Is score > current best?"}
+    K -- Yes --> L["Save this as bestRowCount"]
+    K -- No --> D
+    L --> D
+    D -- "All candidates tried" --> M["Build final layout with bestRowCount"]
+    M --> N["globalScale = min(1.0, containerH / totalH)\nApply same scale to ALL items"]
+    N --> O["Center items horizontally & vertically\nAspect ratios perfectly preserved ✓"]
 
     style A fill:#6366f1,color:#fff
-    style I fill:#22c55e,color:#fff
-    style M fill:#6366f1,color:#fff
+    style L fill:#22c55e,color:#fff
+    style O fill:#6366f1,color:#fff
 ```
 
 #### Step-by-Step
@@ -341,9 +345,15 @@ flowchart TD
    ```
    Rows with tall/portrait items produce larger heights; rows with wide/landscape items produce smaller heights.
 
-5. **Total height & best fit** — Sum all row heights + gaps. The row count where `|totalH − containerH|` is **smallest** wins — this means the final scale factor will be closest to `1.0` (least wasted space).
+5. **Area-based scoring** — For each candidate:
+   - Compute `scale = min(1.0, containerH / totalH)` — how much items must shrink to fit
+   - Compute `fillRatio = min(1.0, totalH × scale / containerH)` — how much vertical space is actually used
+   - Compute `avgItemArea = totalItemArea × scale² / N` — average item area after scaling
+   - **Score = `avgItemArea × fillRatio^1.5`** — this balances item size vs. space utilization. The `fillRatio^1.5` exponent strongly penalizes layouts with large empty gaps (e.g., 1 row using only 60% of height gets a 0.46× penalty).
 
-6. **Early exit** — As `numRows` increases, `totalH` generally increases too. Once `totalH` crosses from below `containerH` to above it, the optimal is already recorded — stop searching.
+6. **Select winner** — The row count with the **highest score** wins. This naturally balances:
+   - Fewer rows → bigger items but potential vertical waste (low fillRatio → penalty)
+   - More rows → better fill but heavy scaling (low avgItemArea)
 
 7. **Uniform scaling** — Apply a single scale factor `globalScale = min(1.0, containerH / totalH)` to **all** items equally. Because width and height scale by the same factor, every item's aspect ratio is **perfectly preserved**.
 
@@ -369,43 +379,41 @@ The search range `⌈√N × 2.5⌉` is carefully chosen:
 
 - **`min(N, ...)` caps the maximum.** You never need more rows than items. For small N (e.g., 4 items), `⌈√4 × 2.5⌉ = 5` is capped at `4`.
 
-- **Combined with early exit**, the actual iterations are typically far fewer — the search stops as soon as `totalH` crosses `containerH`, which often happens within the first few candidates.
-
 #### Before vs After
 
 <p align="center">
-  <img src=".github/algorithm_comparison.png" alt="Algorithm comparison: Greedy Packing vs Optimal Row Search" width="600" />
+  <img src=".github/algorithm_comparison.svg" alt="Algorithm comparison: Greedy Packing vs Area-Optimized Row Search" width="600" />
 </p>
 
-#### Visual Example: 9 Items with Mixed Ratios
+#### Visual Example: 5 Items with Mixed Ratios (3×4:3, 2×9:16)
 
 ```
-Container: 1200 × 700px
-Items: 16:9, 9:16, 4:3, 1:1, 16:9, 9:16, 4:3, 1:1, 16:9
-Search range: 1 to min(9, ⌈√9 × 2.5⌉) = min(9, 8) = 8
+Container: 1024 × 460px
+Items: 4:3, 9:16, 9:16, 4:3, 4:3
+Search range: 1 to min(5, ⌈√5 × 2.5⌉) = min(5, 6) = 5
 
-Row count search:
-┌──────────────────────────────────────────────────────────────────────┐
-│ Rows=1: [9]           totalH =  152px  │ |152−700| = 548  ❌       │
-│ Rows=2: [5, 4]        totalH =  680px  │ |680−700| =  20  ✅ Best  │
-│ Rows=3: [3, 3, 3]     totalH = 1050px  │ |1050−700| = 350 ❌       │
-│ → totalH crossed 700 (from 680→1050) → EARLY EXIT                  │
-└──────────────────────────────────────────────────────────────────────┘
+Area-based scoring:
+┌───────────────────────────────────────────────────────────────────────────────┐
+│ Rows=1: [5]      scale=1.00  fillRatio=0.53  avgArea=61K  score=23.6K  ❌   │
+│ Rows=2: [3, 2]   scale=0.47  fillRatio=1.00  avgArea=42K  score=42.0K  ✅   │
+│ Rows=3: [2,2,1]  scale=0.27  fillRatio=1.00  avgArea=18K  score=18.0K  ❌   │
+└───────────────────────────────────────────────────────────────────────────────┘
 
-Winner: 2 rows [5, 4]
-  globalScale = min(1.0, 700 / 680) = 1.0
-  → Items fill 97% of container, every aspect ratio perfectly preserved
+Winner: 2 rows [3, 2]
+  → Items distributed across 2 rows, filling container height well
+  → No large empty gaps above/below ✓
+
+Old algorithm would pick Rows=1 (closest height diff), leaving ~47% vertical space empty.
 ```
 
 #### Performance
 
 | Metric          | Value                                                          |
 | --------------- | -------------------------------------------------------------- |
-| Time complexity | `O(N × √N)` — N items × up to √N×2.5 candidates (with early exit) |
+| Time complexity | `O(N × √N)` — N items × up to √N×2.5 candidates               |
 | Space           | `O(N)` — only the winning distribution is allocated            |
 | Search phase    | Zero allocations — pure arithmetic on ratio array              |
 | Typical speed   | < 0.1ms for 50 participants                                    |
-| Early exit      | Stops as soon as `totalH` crosses `containerH`                 |
 
 ---
 

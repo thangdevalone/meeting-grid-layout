@@ -1314,10 +1314,11 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
 
   const effectiveCount = visibleIndices.length
 
-  // --- Find optimal row distribution that minimizes wasted space ---
-  // Try different row counts and pick the one where the natural total height
-  // is closest to the available height. This ensures uniform scaling (which
-  // preserves aspect ratios) is as close to 1.0 as possible.
+  // --- Find optimal row distribution that maximizes space utilization ---
+  // Uses area-based scoring: for each candidate row count, compute the total
+  // item area after uniform scaling and weight it by vertical fill ratio.
+  // This prevents single-row layouts from winning when they waste lots of
+  // vertical space (common with mixed aspect ratios like 4:3 + 9:16).
 
   // Compute total height for a given row count without allocating arrays
   // Just walks itemWHRatios directly using row sizes
@@ -1341,6 +1342,31 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
     return totalH + (numRows - 1) * gap
   }
 
+  // Compute total item area (sum of width*height for all items) at natural scale
+  function computeTotalAreaForRows(numRows: number): number {
+    const base = Math.floor(effectiveCount / numRows)
+    const extra = effectiveCount % numRows
+    let totalArea = 0
+    let itemIdx = 0
+
+    for (let r = 0; r < numRows; r++) {
+      const rowSize = base + (r < extra ? 1 : 0)
+      let totalUnitW = 0
+      for (let i = 0; i < rowSize; i++) {
+        totalUnitW += itemWHRatios[itemIdx + i]
+      }
+      const netW = availW - (rowSize - 1) * gap
+      const rowH = netW / totalUnitW
+      for (let i = 0; i < rowSize; i++) {
+        const itemW = (itemWHRatios[itemIdx + i] / totalUnitW) * netW
+        totalArea += itemW * rowH
+      }
+      itemIdx += rowSize
+    }
+
+    return totalArea
+  }
+
   // Build distribution array for the chosen row count
   function distributeEvenly(numRows: number): number[][] {
     const result: number[][] = []
@@ -1356,28 +1382,33 @@ function createFlexibleGalleryGrid(options: MeetGridOptions): MeetGridResult {
   }
 
   let bestRowCount = 1
-  let bestDiff = Infinity
+  let bestScore = -1
   const maxTryRows = Math.min(effectiveCount, Math.ceil(Math.sqrt(effectiveCount) * 2.5))
-  let prevTotalH = 0
 
   for (let numRows = 1; numRows <= maxTryRows; numRows++) {
     if (Math.floor(effectiveCount / numRows) === 0) break
 
     const totalH = computeTotalHeightForRows(numRows)
-    const diff = Math.abs(totalH - availH)
+    const scale = Math.min(1.0, availH / totalH)
+    const scaledTotalH = totalH * scale + (scale < 1.0 ? 0 : 0)
 
-    if (diff < bestDiff) {
-      bestDiff = diff
+    // Average item area after scaling (scale affects both dimensions)
+    const naturalArea = computeTotalAreaForRows(numRows)
+    const scaledArea = naturalArea * scale * scale
+    const avgItemArea = scaledArea / effectiveCount
+
+    // How much of the vertical space is actually filled by items
+    const fillRatio = Math.min(1.0, scaledTotalH / availH)
+
+    // Score: maximize item area, weighted by fill ratio.
+    // fillRatio^1.5 strongly penalizes layouts with large empty gaps
+    // (e.g., 1 row using only 60% of height gets fillRatio=0.6, penalty=0.46)
+    const score = avgItemArea * Math.pow(fillRatio, 1.5)
+
+    if (score > bestScore) {
+      bestScore = score
       bestRowCount = numRows
     }
-
-    // Early exit: totalH increases with numRows, so once we cross availH
-    // and start diverging, the optimal is found
-    if (numRows > 1 && totalH > availH && prevTotalH < availH) {
-      // We just crossed — optimal is either this or previous, already tracked
-      break
-    }
-    prevTotalH = totalH
   }
 
   const bestRows = distributeEvenly(bestRowCount)
