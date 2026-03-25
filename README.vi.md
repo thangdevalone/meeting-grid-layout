@@ -289,13 +289,15 @@ const itemAspectRatios = [
 
 ### Thuật toán Gallery linh hoạt
 
-Khi các participant có **tỉ lệ khác nhau** (ví dụ: điện thoại 9:16, máy tính 16:9), grid sử dụng thuật toán **Tìm kiếm số hàng tối ưu** để tìm bố cục ít lãng phí không gian nhất mà vẫn giữ đúng tỉ lệ.
+Khi các participant có **tỉ lệ khác nhau** (ví dụ: điện thoại 9:16, máy tính 16:9), grid sử dụng thuật toán **Tìm kiếm hàng tối ưu theo diện tích** để tìm bố cục tận dụng không gian tốt nhất mà vẫn giữ đúng tỉ lệ.
 
 #### Vấn đề của Greedy Packing
 
 Cách tiếp cận đơn giản là xếp item vào hàng cho đến khi hàng "đầy" rồi xuống hàng mới. Cách này thường tạo ra **layout lệch** — ví dụ 10 item có thể thành `[4, 5, 1]`, hàng cuối chỉ có 1 item lẻ loi và lãng phí rất nhiều không gian.
 
-Thuật toán của chúng tôi tránh điều này bằng cách **thử nhiều số hàng khác nhau** và chọn cái lấp đầy container tốt nhất.
+Cách tiếp cận so sánh chiều cao (`|totalH − chiềuCao|`) cũng thất bại với tỉ lệ hỗn hợp — nó có xu hướng chọn layout 1 hàng để lại khoảng trống dọc rất lớn (VD: 3×4:3 + 2×9:16 tất cả trong 1 hàng).
+
+Thuật toán của chúng tôi tránh cả hai vấn đề bằng cách **chấm điểm mỗi bố cục dựa trên diện tích sử dụng thực tế**, có trọng số theo mức lấp đầy container.
 
 #### Sơ đồ thuật toán
 
@@ -307,18 +309,20 @@ flowchart TD
     D --> E["Phân bổ đều N item vào numRows hàng\n(mỗi hàng ⌊N/R⌋ hoặc ⌈N/R⌉ item)"]
     E --> F["Với mỗi hàng, tính chiều cao tự nhiên:\nrowH = (chiềuRộng − khoảng cách) / Σ(tỉ lệ w/h trong hàng)"]
     F --> G["totalH = Σ(tất cả rowH) + khoảng cách giữa các hàng"]
-    G --> H{"Liệu |totalH − chiềuCao|\n< kết quả tốt nhất hiện tại?"}
-    H -- Có --> I["Lưu lại: bestRowCount = numRows"]
-    H -- Không --> J{"totalH vừa vượt qua\nchiềuCao container?"}
-    I --> J
-    J -- "Có → thoát sớm" --> K["Xây dựng layout với bestRowCount"]
-    J -- "Không → thử tiếp" --> D
-    K --> L["globalScale = min(1.0, chiềuCao / totalH)\nÁp dụng cùng scale cho TẤT CẢ item"]
-    L --> M["Căn giữa ngang & dọc\nTỉ lệ được bảo toàn hoàn hảo ✓"]
+    G --> H["scale = min(1.0, chiềuCao / totalH)\nfillRatio = min(1.0, totalH × scale / chiềuCao)"]
+    H --> I["Tính tổng diện tích item sau scaling\nscaledArea = diệnTíchTựNhiên × scale²"]
+    I --> J["score = diệnTíchTB × fillRatio^1.5\n(phạt nặng layout có khoảng trống lớn)"]
+    J --> K{"score > điểm tốt nhất?"}
+    K -- Có --> L["Lưu lại: bestRowCount = numRows"]
+    K -- Không --> D
+    L --> D
+    D -- "Đã thử hết" --> M["Xây dựng layout với bestRowCount"]
+    M --> N["globalScale = min(1.0, chiềuCao / totalH)\nÁp dụng cùng scale cho TẤT CẢ item"]
+    N --> O["Căn giữa ngang & dọc\nTỉ lệ được bảo toàn hoàn hảo ✓"]
 
     style A fill:#6366f1,color:#fff
-    style I fill:#22c55e,color:#fff
-    style M fill:#6366f1,color:#fff
+    style L fill:#22c55e,color:#fff
+    style O fill:#6366f1,color:#fff
 ```
 
 #### Các bước chi tiết
@@ -341,9 +345,15 @@ flowchart TD
    ```
    Hàng có item dọc/cao sẽ cho chiều cao lớn; hàng có item ngang/rộng cho chiều cao nhỏ.
 
-5. **Tổng chiều cao & chọn tốt nhất** — Cộng tất cả chiều cao hàng + khoảng cách. Số hàng mà `|totalH − chiềuCao|` **nhỏ nhất** thắng — nghĩa là hệ số scale cuối sẽ gần `1.0` nhất (ít lãng phí nhất).
+5. **Chấm điểm dựa trên diện tích** — Với mỗi ứng viên:
+   - Tính `scale = min(1.0, chiềuCao / totalH)` — item cần thu nhỏ bao nhiêu để vừa
+   - Tính `fillRatio = min(1.0, totalH × scale / chiềuCao)` — bao nhiêu không gian dọc thực sự được sử dụng
+   - Tính `diệnTíchTB = tổngDiệnTích × scale² / N` — diện tích trung bình mỗi item sau scaling
+   - **Score = `diệnTíchTB × fillRatio^1.5`** — cân bằng giữa kích thước item và tận dụng không gian. Số mũ `fillRatio^1.5` phạt mạnh layout có khoảng trống lớn (VD: 1 hàng chỉ dùng 60% chiều cao → bị phạt 0.46×).
 
-6. **Thoát sớm** — Khi `numRows` tăng, `totalH` cũng tăng theo. Ngay khi `totalH` vượt từ dưới lên trên `chiềuCao container`, phương án tối ưu đã được ghi nhận — dừng tìm kiếm.
+6. **Chọn kết quả** — Số hàng có **score cao nhất** thắng. Điều này tự nhiên cân bằng:
+   - Ít hàng → item lớn hơn nhưng có thể lãng phí dọc (fillRatio thấp → bị phạt)
+   - Nhiều hàng → lấp đầy tốt hơn nhưng scaling nặng (diệnTíchTB nhỏ)
 
 7. **Scale đều** — Áp dụng một hệ số `globalScale = min(1.0, chiềuCao / totalH)` cho **tất cả** item. Vì chiều rộng và chiều cao scale cùng hệ số, tỉ lệ của mỗi item được **bảo toàn hoàn hảo**.
 
@@ -369,43 +379,41 @@ Phạm vi tìm kiếm `⌈√N × 2.5⌉` được chọn cẩn thận:
 
 - **`min(N, ...)` giới hạn tối đa.** Không bao giờ cần nhiều hàng hơn số item. Với N nhỏ (VD: 4 item), `⌈√4 × 2.5⌉ = 5` bị giới hạn còn `4`.
 
-- **Kết hợp với thoát sớm**, số lần lặp thực tế thường ít hơn nhiều — tìm kiếm dừng ngay khi `totalH` vượt qua `chiềuCao container`, thường chỉ sau vài ứng viên đầu tiên.
-
 #### So sánh trước và sau
 
 <p align="center">
-  <img src=".github/algorithm_comparison.png" alt="So sánh thuật toán: Greedy Packing vs Tìm kiếm hàng tối ưu" width="600" />
+  <img src=".github/algorithm_comparison.svg" alt="So sánh thuật toán: Greedy Packing vs Tìm kiếm hàng tối ưu theo diện tích" width="600" />
 </p>
 
-#### Ví dụ trực quan: 9 item với tỉ lệ hỗn hợp
+#### Ví dụ trực quan: 5 item với tỉ lệ hỗn hợp (3×4:3, 2×9:16)
 
 ```
-Container: 1200 × 700px
-Tỉ lệ: 16:9, 9:16, 4:3, 1:1, 16:9, 9:16, 4:3, 1:1, 16:9
-Phạm vi tìm: 1 đến min(9, ⌈√9 × 2.5⌉) = min(9, 8) = 8
+Container: 1024 × 460px
+Tỉ lệ: 4:3, 9:16, 9:16, 4:3, 4:3
+Phạm vi tìm: 1 đến min(5, ⌈√5 × 2.5⌉) = min(5, 6) = 5
 
-Tìm kiếm số hàng:
-┌──────────────────────────────────────────────────────────────────────────┐
-│ Rows=1: [9]           totalH =  152px  │ |152−700| = 548  ❌           │
-│ Rows=2: [5, 4]        totalH =  680px  │ |680−700| =  20  ✅ Tốt nhất │
-│ Rows=3: [3, 3, 3]     totalH = 1050px  │ |1050−700| = 350 ❌           │
-│ → totalH vượt 700 (680→1050) → THOÁT SỚM                              │
-└──────────────────────────────────────────────────────────────────────────┘
+Chấm điểm theo diện tích:
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│ Rows=1: [5]      scale=1.00  fillRatio=0.53  diệnTíchTB=61K  score=23.6K  ❌        │
+│ Rows=2: [3, 2]   scale=0.47  fillRatio=1.00  diệnTíchTB=42K  score=42.0K  ✅        │
+│ Rows=3: [2,2,1]  scale=0.27  fillRatio=1.00  diệnTíchTB=18K  score=18.0K  ❌        │
+└───────────────────────────────────────────────────────────────────────────────────────┘
 
-Thắng: 2 hàng [5, 4]
-  globalScale = min(1.0, 700 / 680) = 1.0
-  → Item lấp 97% container, tỉ lệ bảo toàn hoàn hảo
+Thắng: 2 hàng [3, 2]
+  → Item được phân bố qua 2 hàng, lấp đầy chiều cao container tốt
+  → Không còn khoảng trống lớn phía trên/dưới ✓
+
+Thuật toán cũ sẽ chọn Rows=1 (chiều cao gần nhất), để lại ~47% không gian dọc trống.
 ```
 
 #### Hiệu năng
 
-| Chỉ số                | Giá trị                                                            |
-| --------------------- | ------------------------------------------------------------------ |
-| Độ phức tạp thời gian | `O(N × √N)` — N item × tối đa √N×2.5 ứng viên (có thoát sớm)     |
-| Bộ nhớ                | `O(N)` — chỉ cấp phát mảng cho phương án thắng                    |
-| Pha tìm kiếm          | Không cấp phát bộ nhớ — chỉ tính arithmetic trên mảng tỉ lệ       |
-| Tốc độ thực tế        | < 0.1ms cho 50 participant                                        |
-| Thoát sớm             | Dừng ngay khi `totalH` vượt qua `chiềuCao container`              |
+| Chỉ số                | Giá trị                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| Độ phức tạp thời gian | `O(N × √N)` — N item × tối đa √N×2.5 ứng viên                |
+| Bộ nhớ                | `O(N)` — chỉ cấp phát mảng cho phương án thắng                |
+| Pha tìm kiếm          | Không cấp phát bộ nhớ — chỉ tính arithmetic trên mảng tỉ lệ   |
+| Tốc độ thực tế        | < 0.1ms cho 50 participant                                     |
 
 ---
 
