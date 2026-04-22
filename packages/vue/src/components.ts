@@ -546,8 +546,8 @@ export const GridItem = defineComponent({
         motion.div,
         {
           key: `grid-${props.index}`,
-          initial: { width: itemWidth, height: itemHeight },
-          animate: { width: itemWidth, height: itemHeight },
+          initial: { width: `${itemWidth}px`, height: `${itemHeight}px` },
+          animate: { width: `${itemWidth}px`, height: `${itemHeight}px` },
           transition,
           style: {
             position: 'absolute',
