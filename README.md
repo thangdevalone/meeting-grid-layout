@@ -47,6 +47,7 @@
 | **Pagination**              | Split participants across pages with navigation        |
 | **Max Visible + "+N More"** | Limit visible items and show overflow indicator        |
 | **Flexible Aspect Ratios**  | Per-item ratios (phone 9:16, desktop 16:9)             |
+| **Force Aspect Ratio**      | Force grid items to strictly adhere to their ratios    |
 | **Floating PiP**            | Draggable Picture-in-Picture with corner snapping      |
 | **Pin Only Mode**           | Mobile/tablet pin view with separate pagination        |
 | **Grid Overlay**            | Full-grid overlay for screen sharing, whiteboard, etc. |
@@ -287,6 +288,19 @@ const itemAspectRatios = [
 | `"auto"`    | Stretch to fill the cell (default when not specified) |
 | `undefined` | Use global `aspectRatio`                              |
 
+### Forcing Aspect Ratios
+
+By default, the `GridItem` wrappers stretch to fill the grid cells as much as possible, and you use `contentDimensions` to size your inner video elements correctly.
+If you prefer the `GridItem` wrappers themselves to strictly adhere to the aspect ratio (e.g. for borders, backgrounds, or pure CSS layouts), set `forceAspectRatio={true}` on the `GridContainer`.
+This forces the GridItem wrappers to shrink to the exact aspect ratio size and perfectly centers them inside their cells. (Floating PiP items always strictly maintain their aspect ratio natively).
+
+```tsx
+<GridContainer
+  forceAspectRatio={true}
+  aspectRatio="16:9"
+>
+```
+
 ### How the Flexible Gallery Algorithm Works
 
 When participants have **mixed aspect ratios** (e.g., some on phones with 9:16, others on desktops with 16:9), the grid uses an **Area-Optimized Row Search** algorithm to find the layout that maximizes space utilization while preserving correct aspect ratios.
@@ -422,19 +436,14 @@ Old algorithm would pick Rows=1 (closest height diff), leaving ~47% vertical spa
 Draggable floating item with corner snapping. Supports fixed or responsive sizing.
 
 ```tsx
-import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meeting-grid-layout-react'
+import { FloatingGridItem } from '@thangdevalone/meeting-grid-layout-react'
 
 <GridContainer>
   {/* Main grid items */}
 
-  {/* Fixed size */}
-  <FloatingGridItem width={130} height={175} anchor="bottom-right">
+  {/* Fixed size (responsive automatically based on floatSize prop on GridContainer, or size prop here) */}
+  <FloatingGridItem size="large" aspectRatio="9:16" anchor="bottom-right">
     <VideoTile participant={floatingParticipant} />
-  </FloatingGridItem>
-
-  {/* Responsive — auto-adjusts based on container width */}
-  <FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
-    <VideoTile />
   </FloatingGridItem>
 </GridContainer>
 
@@ -453,31 +462,23 @@ import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet
 </GridContainer>
 ```
 
-### Default Breakpoints
+### Pre-defined Sizes
 
-| Container Width | PiP Size  |
-| --------------- | --------- |
-| 0 – 479px       | 100 × 135 |
-| 480 – 767px     | 130 × 175 |
-| 768 – 1023px    | 160 × 215 |
-| 1024 – 1439px   | 180 × 240 |
-| 1440px+         | 220 × 295 |
+Instead of complex breakpoints, you can easily set responsive sizes using `floatSize` / `size`:
 
-Custom breakpoints via `PipBreakpoint[]`:
+| `floatSize` | Description |
+| ----------- | ----------- |
+| `'small'`   | Compact PiP (80px on mobile → 160px on desktop) |
+| `'medium'`  | Standard PiP (110px on mobile → 210px on desktop) **(Default)** |
+| `'large'`   | Large PiP (140px on mobile → 260px on desktop) |
 
 ```tsx
-const myBreakpoints: PipBreakpoint[] = [
-  { minWidth: 0, width: 80, height: 110 },
-  { minWidth: 600, width: 150, height: 200 },
-  { minWidth: 1200, width: 250, height: 330 },
-]
-
-<FloatingGridItem breakpoints={myBreakpoints}>...</FloatingGridItem>
+<FloatingGridItem size="large">...</FloatingGridItem>
 // or
-<GridContainer count={2} floatBreakpoints={myBreakpoints}>...</GridContainer>
+<GridContainer count={2} floatSize="large">...</GridContainer>
 ```
 
-> **Note:** Fixed `width`/`height` props override breakpoints. The system matches the largest `minWidth ≤ container width`.
+> **Note:** The layout will automatically adjust width and height based on the aspect ratio you provide to ensure the bounding box always fits the `floatSize` scale properly.
 
 ### `pipIndex` — Controlling the PiP target
 

@@ -82,6 +82,9 @@ const pipIndex = ref(1)
 const pinOnly = ref(false)
 const floatingPipEnabled = ref(true)
 const disableAnimation = ref(false)
+const forceAspectRatio = ref(false)
+const floatSize = ref<'small' | 'medium' | 'large'>('medium')
+const pipAspectRatio = ref('16:9')
 const isDrawerOpen = ref(false)
 
 // Responsive floating size
@@ -94,9 +97,7 @@ onMounted(() => {
   mediaQuery.addEventListener('change', handler)
   onUnmounted(() => mediaQuery.removeEventListener('change', handler))
 })
-const floatingSize = computed(() =>
-  isMobile.value ? { width: 90, height: 120 } : { width: 130, height: 175 }
-)
+
 
 // Flex mode: per-participant aspect ratios
 const RATIO_OPTIONS = ['16:9', '9:16', '4:3', '1:1'] as const
@@ -131,7 +132,7 @@ const layoutModes: { value: LayoutMode; label: string }[] = [
   { value: 'spotlight', label: 'Spotlight' },
 ]
 
-const aspectRatios = ['16:9', '4:3', '1:1']
+const aspectRatios = ['16:9', '9:16', '4:3', '1:1']
 const positions = ['left', 'right', 'top', 'bottom'] as const
 
 const othersCount = computed(() => participants.value.length - 1)
@@ -292,8 +293,13 @@ const pinnedParticipant = computed(() =>
 )
 
 // Zoom mode: 'auto' aspect ratio for pinned participant so it fills entire container
+// Support custom PiP aspect ratio for floating items
 const zoomItemAspectRatios = computed(() =>
-  participants.value.map((_, i) => (i === pinnedIndex.value ? 'auto' : '16:9'))
+  participants.value.map((_, i) => {
+    if (i === pinnedIndex.value) return 'auto'
+    if (i === floatingIndex.value) return pipAspectRatio.value
+    return '16:9'
+  })
 )
 </script>
 
@@ -378,6 +384,19 @@ const zoomItemAspectRatios = computed(() =>
               @click="flexMode = !flexMode"
             >
               Flex
+            </button>
+          </div>
+        </div>
+
+        <!-- Force Aspect Ratio toggle -->
+        <div class="control-group">
+          <span class="control-label">Force Ratio</span>
+          <div class="control-buttons">
+            <button
+              :class="['btn', { active: forceAspectRatio }]"
+              @click="forceAspectRatio = !forceAspectRatio"
+            >
+              {{ forceAspectRatio ? 'On' : 'Off' }}
             </button>
           </div>
         </div>
@@ -520,6 +539,36 @@ const zoomItemAspectRatios = computed(() =>
           </div>
         </div>
 
+        <!-- Float Size & Aspect Ratio (for floating PiPs) -->
+        <template v-if="zoomMode || (layoutMode === 'gallery' && participants.length === 2 && floatingPipEnabled)">
+          <div class="control-group">
+            <span class="control-label">PiP Size</span>
+            <div class="control-buttons">
+              <button
+                v-for="size in ['small', 'medium', 'large']"
+                :key="size"
+                :class="['btn', { active: floatSize === size }]"
+                @click="floatSize = size as any"
+              >
+                {{ size.charAt(0).toUpperCase() + size.slice(1) }}
+              </button>
+            </div>
+          </div>
+          <div class="control-group">
+            <span class="control-label">PiP Ratio</span>
+            <div class="control-buttons">
+              <button
+                v-for="ratio in aspectRatios"
+                :key="ratio"
+                :class="['btn', { active: pipAspectRatio === ratio }]"
+                @click="pipAspectRatio = ratio"
+              >
+                {{ ratio }}
+              </button>
+            </div>
+          </div>
+        </template>
+
         <!-- Disable Animation toggle -->
         <div class="control-group">
           <span class="control-label">Animation</span>
@@ -558,6 +607,8 @@ const zoomItemAspectRatios = computed(() =>
         :count="participants.length"
         spring-preset="smooth"
         :disable-animation="disableAnimation"
+        :force-aspect-ratio="forceAspectRatio"
+        :float-size="floatSize"
         :item-aspect-ratios="zoomItemAspectRatios"
       >
         <!-- Only render the pinned participant -->
@@ -601,8 +652,8 @@ const zoomItemAspectRatios = computed(() =>
         <FloatingGridItem
           v-if="floatingIndex !== pinnedIndex && floatingParticipant"
           :key="`floating-${floatingIndex}`"
-          :width="floatingSize.width"
-          :height="floatingSize.height"
+          :size="floatSize"
+          :aspect-ratio="pipAspectRatio"
           anchor="bottom-right"
           :initial-position="{ x: 12, y: 12 }"
           :border-radius="isMobile ? 10 : 12"
@@ -680,11 +731,17 @@ const zoomItemAspectRatios = computed(() =>
         :max-visible="maxVisibleProp"
         :current-visible-page="othersPage"
         spring-preset="smooth"
-        :item-aspect-ratios="itemAspectRatios"
+        :item-aspect-ratios="
+          layoutMode === 'gallery' && participants.length === 2 && floatingPipEnabled
+            ? participants.map((_, i) => (i === pipIndex ? pipAspectRatio : 'auto'))
+            : itemAspectRatios
+        "
         :pip-index="pipIndex"
         :pin-only="pinOnly"
         :disable-float="!floatingPipEnabled"
         :disable-animation="disableAnimation"
+        :force-aspect-ratio="forceAspectRatio"
+        :float-size="floatSize"
       >
         <GridItem
           v-for="(participant, index) in participants"

@@ -1,11 +1,12 @@
 import {
+  FloatSize,
+  getAspectRatio,
   getSpringConfig,
   GridDimensions,
   ItemAspectRatio,
   LayoutMode,
   MeetGridResult,
-  PipBreakpoint,
-  resolveFloatSize,
+  resolveFloatWidth,
   SpringPreset,
 } from '@thangdevalone/meeting-grid-layout-core'
 import { animate, motion, useMotionValue } from 'motion-v'
@@ -21,7 +22,7 @@ import {
   ref,
   Ref,
   toRef,
-  watch,
+  watch
 } from 'vue'
 import { useGridDimensions, useMeetGrid } from './composables'
 
@@ -34,6 +35,7 @@ export interface GridContextValue {
   springPreset: Ref<SpringPreset>
   dimensions: Ref<GridDimensions>
   disableAnimation: Ref<boolean>
+  forceAspectRatio: Ref<boolean>
 }
 
 export const GridContextKey: InjectionKey<GridContextValue> = Symbol('MeetGridContext')
@@ -113,24 +115,13 @@ export const GridContainer = defineComponent({
       type: Array as PropType<(ItemAspectRatio | undefined)[]>,
       default: undefined,
     },
-    /** Custom width for the floating PiP item in 2-person mode */
-    floatWidth: {
-      type: Number,
-      default: undefined,
-    },
-    /** Custom height for the floating PiP item in 2-person mode */
-    floatHeight: {
-      type: Number,
-      default: undefined,
-    },
     /**
-     * Responsive breakpoints for the floating PiP in 2-person mode.
-     * When provided, PiP size auto-adjusts based on container width.
-     * Use `DEFAULT_FLOAT_BREAKPOINTS` for a ready-made 5-level responsive config.
+     * Pre-defined responsive size for the floating PiP window.
+     * 'small', 'medium', or 'large'.
      */
-    floatBreakpoints: {
-      type: Array as PropType<PipBreakpoint[]>,
-      default: undefined,
+    floatSize: {
+      type: String as PropType<FloatSize>,
+      default: 'medium',
     },
     /**
      * Index of the participant to show as the floating PiP in 2-person mode.
@@ -172,6 +163,14 @@ export const GridContainer = defineComponent({
       type: Boolean,
       default: false,
     },
+    /**
+     * If true, forces the GridItem wrappers to maintain their aspect ratio exactly.
+     * @default false
+     */
+    forceAspectRatio: {
+      type: Boolean,
+      default: false,
+    },
 
     /** HTML tag to render */
     tag: {
@@ -196,12 +195,11 @@ export const GridContainer = defineComponent({
       maxVisible: props.maxVisible,
       currentVisiblePage: props.currentVisiblePage,
       itemAspectRatios: props.itemAspectRatios,
-      floatWidth: props.floatWidth,
-      floatHeight: props.floatHeight,
-      floatBreakpoints: props.floatBreakpoints,
+      floatSize: props.floatSize,
       pipIndex: props.pipIndex,
       pinOnly: props.pinOnly,
       disableFloat: props.disableFloat,
+      forceAspectRatio: props.forceAspectRatio,
     }))
 
     const grid = useMeetGrid(gridOptions)
@@ -212,6 +210,7 @@ export const GridContainer = defineComponent({
       springPreset: toRef(props, 'springPreset'),
       dimensions,
       disableAnimation: toRef(props, 'disableAnimation'),
+      forceAspectRatio: toRef(props, 'forceAspectRatio'),
     })
 
     return () =>
@@ -267,18 +266,49 @@ export const GridItem = defineComponent({
       return () => null
     }
 
-    const { grid, springPreset, dimensions: containerDimensions, disableAnimation: containerDisableAnimation } = context
+    const { grid, springPreset, dimensions: containerDimensions, disableAnimation: containerDisableAnimation, forceAspectRatio } = context
 
     // Merge container-level and item-level disableAnimation
     const noAnimation = computed(() => containerDisableAnimation.value || props.disableAnimation)
 
-    const position = computed(() => grid.value.getPosition(props.index))
-    const dimensions = computed(() => grid.value.getItemDimensions(props.index))
-    const contentDimensions = computed(() =>
-      grid.value.getItemContentDimensions(props.index, props.itemAspectRatio)
-    )
     const isMain = computed(() => grid.value.isMainItem(props.index))
     const isVisible = computed(() => grid.value.isItemVisible(props.index))
+    const isFloat = computed(() => grid.value.floatIndex === props.index)
+    
+    // Whether this specific item should force aspect ratio
+    const shouldForceRatio = computed(() => forceAspectRatio.value || isFloat.value)
+    
+    const position = computed(() => {
+      const pos = grid.value.getPosition(props.index)
+      if (shouldForceRatio.value && !isFloat.value) {
+        const contentDims = grid.value.getItemContentDimensions(props.index, props.itemAspectRatio)
+        return {
+          top: pos.top + contentDims.offsetTop,
+          left: pos.left + contentDims.offsetLeft
+        }
+      }
+      return pos
+    })
+    
+    const dimensions = computed(() => {
+      if (shouldForceRatio.value && !isFloat.value) {
+        const contentDims = grid.value.getItemContentDimensions(props.index, props.itemAspectRatio)
+        return {
+          width: contentDims.width,
+          height: contentDims.height
+        }
+      }
+      return grid.value.getItemDimensions(props.index)
+    })
+    
+    const contentDimensions = computed(() => {
+      const dims = grid.value.getItemContentDimensions(props.index, props.itemAspectRatio)
+      if (shouldForceRatio.value) {
+        return { ...dims, offsetTop: 0, offsetLeft: 0 }
+      }
+      return dims
+    })
+
     const isHidden = computed(() => {
       // Hidden if spotlight mode and not main, OR if pagination says not visible
       if (grid.value.layoutMode === 'spotlight' && !isMain.value) return true
@@ -286,9 +316,10 @@ export const GridItem = defineComponent({
       return false
     })
 
-    // Float mode detection
-    const isFloat = computed(() => grid.value.floatIndex === props.index)
-    const floatDims = computed(() => grid.value.floatDimensions ?? { width: 120, height: 160 })
+    const floatDims = computed(() => {
+      const dims = grid.value.getItemContentDimensions(props.index, props.itemAspectRatio)
+      return { width: dims.width, height: dims.height }
+    })
 
     // Float state — uses motion values like React version
     const floatAnchor = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>(
@@ -354,22 +385,25 @@ export const GridItem = defineComponent({
       { immediate: true }
     )
 
-    // Update float position when anchor or container size changes
+    // Update float position when anchor or container size or float size changes
     watch(
-      [floatAnchor, () => containerDimensions.value.width, () => containerDimensions.value.height],
-      ([, w, h]) => {
-        if (isFloat.value && floatInitialized.value && w > 0 && h > 0) {
-          const pos = getFloatCornerPos(floatAnchor.value)
-          if (noAnimation.value) {
-            x.set(pos.x)
-            y.set(pos.y)
-          } else {
-            const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-            animate(x, pos.x, springCfg)
-            animate(y, pos.y, springCfg)
-          }
+      () => [
+        floatAnchor.value,
+        containerDimensions.value.width,
+        containerDimensions.value.height,
+        floatDims.value.width,
+        floatDims.value.height,
+      ] as const,
+      ([newAnchor, cw, ch]) => {
+        if (isFloat.value && floatInitialized.value && cw > 0 && ch > 0) {
+          const pos = getFloatCornerPos(newAnchor)
+          // For container resize or ratio changes, snapping instantly avoids 
+          // conflict with motion-v's animation cycle and layout reflows.
+          x.set(pos.x)
+          y.set(pos.y)
         }
-      }
+      },
+      { flush: 'post' }
     )
 
     // Calculate if this is the last visible "other" item
@@ -625,14 +659,16 @@ export const FloatingGridItem = defineComponent({
       default: 160,
     },
     /**
-     * Responsive breakpoints for PiP sizing.
-     * When provided, width/height auto-adjust based on container width.
-     * Overrides the fixed `width`/`height` props.
-     * Use `DEFAULT_FLOAT_BREAKPOINTS` for a ready-made 5-level responsive config.
+     * Pre-defined responsive size for the floating item.
+     * 'small', 'medium', or 'large'.
      */
-    breakpoints: {
-      type: Array as PropType<PipBreakpoint[]>,
-      default: undefined,
+    size: {
+      type: String as PropType<'small' | 'medium' | 'large'>,
+      default: 'medium',
+    },
+    aspectRatio: {
+      type: String,
+      default: '16:9',
     },
     /** Initial position (x, y from container edges) */
     initialPosition: {
@@ -677,12 +713,15 @@ export const FloatingGridItem = defineComponent({
     const { dimensions, disableAnimation: containerDisableAnimation } = context
     const currentAnchor = ref(props.anchor)
 
-    // Resolve responsive size from breakpoints (if provided), otherwise use fixed width/height
+    // Resolve responsive size ensuring constant area across aspect ratios
     const effectiveSize = computed(() => {
-      if (props.breakpoints && props.breakpoints.length > 0 && dimensions.value.width > 0) {
-        return resolveFloatSize(dimensions.value.width, props.breakpoints)
+      const hwRatio = getAspectRatio(props.aspectRatio)
+      const baseSize = resolveFloatWidth(dimensions.value.width, props.size)
+      const baseArea = baseSize * baseSize
+      return { 
+        width: Math.sqrt(baseArea / hwRatio), 
+        height: Math.sqrt(baseArea * hwRatio) 
       }
-      return { width: props.width, height: props.height }
     })
 
     // Motion values for position (matching React pattern)
@@ -752,45 +791,27 @@ export const FloatingGridItem = defineComponent({
       { immediate: true }
     )
 
-    // Update position when anchor changes (e.g. prop change)
+    // Update position when anchor, container dims, or effective size changes
     watch(
-      [
-        () => props.anchor,
-        () => containerDimensions.value.width,
-        () => containerDimensions.value.height,
-      ],
-      ([newAnchor, w, h]) => {
-        if (isInitialized.value && w > 0 && h > 0 && newAnchor !== currentAnchor.value) {
-          currentAnchor.value = newAnchor
+      () => [
+        props.anchor,
+        containerDimensions.value.width,
+        containerDimensions.value.height,
+        effectiveSize.value.width,
+        effectiveSize.value.height,
+      ] as const,
+      ([newAnchor, cw, ch]) => {
+        if (isInitialized.value && cw > 0 && ch > 0) {
+          if (newAnchor !== currentAnchor.value) {
+            currentAnchor.value = newAnchor
+          }
           const pos = getCornerPosition(newAnchor)
-          if (containerDisableAnimation.value) {
-            x.set(pos.x)
-            y.set(pos.y)
-          } else {
-            const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-            animate(x, pos.x, springCfg)
-            animate(y, pos.y, springCfg)
-          }
+          // Snap instantly to avoid layout animation conflicts
+          x.set(pos.x)
+          y.set(pos.y)
         }
-      }
-    )
-
-    // Update position when effective size changes (responsive breakpoint change)
-    watch(
-      [() => effectiveSize.value.width, () => effectiveSize.value.height],
-      () => {
-        if (isInitialized.value && containerDimensions.value.width > 0 && containerDimensions.value.height > 0) {
-          const pos = getCornerPosition(currentAnchor.value)
-          if (containerDisableAnimation) {
-            x.set(pos.x)
-            y.set(pos.y)
-          } else {
-            const springCfg = { type: 'spring' as const, stiffness: 400, damping: 30 }
-            animate(x, pos.x, springCfg)
-            animate(y, pos.y, springCfg)
-          }
-        }
-      }
+      },
+      { flush: 'post' }
     )
 
     return () => {

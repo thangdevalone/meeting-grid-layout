@@ -35,7 +35,7 @@ export type {
     PaginationInfo,
     ItemAspectRatio,
     ContentDimensions,
-    PipBreakpoint,
+    FloatSize,
 } from '@thangdevalone/meeting-grid-layout-core'
 
 export {
@@ -46,6 +46,5 @@ export {
     getSpringConfig,
     springPresets,
     getAspectRatio,
-    resolveFloatSize,
-    DEFAULT_FLOAT_BREAKPOINTS,
+    resolveFloatWidth,
 } from '@thangdevalone/meeting-grid-layout-core'

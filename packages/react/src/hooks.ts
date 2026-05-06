@@ -17,6 +17,7 @@ interface GridContextValue {
   grid: MeetGridResult | null
   springPreset: SpringPreset
   disableAnimation: boolean
+  forceAspectRatio: boolean
 }
 
 const GridContext = createContext<GridContextValue | null>(null)
@@ -25,6 +26,7 @@ const GridContext = createContext<GridContextValue | null>(null)
  * Hook to access the grid context
  */
 export function useGridContext(): GridContextValue {
+  
   const context = useContext(GridContext)
   if (!context) {
     throw new Error('useGridContext must be used within a GridContainer')
@@ -88,10 +90,6 @@ export function useGridDimensions(ref: RefObject<HTMLElement | null>): GridDimen
 export function useMeetGrid(options: MeetGridOptions): MeetGridResult {
   // Serialize itemAspectRatios for dependency comparison
   const itemAspectRatiosKey = options.itemAspectRatios?.join(',') ?? ''
-  // Serialize floatBreakpoints to avoid unstable array reference triggering recalc
-  const floatBreakpointsKey = options.floatBreakpoints
-    ?.map(b => `${b.minWidth}:${b.width}x${b.height}`)
-    .join(',') ?? ''
 
   return useMemo(() => {
     return createMeetGrid(options)
@@ -111,9 +109,8 @@ export function useMeetGrid(options: MeetGridOptions): MeetGridResult {
     options.pinOnly,
     options.pipIndex,
     options.disableFloat,
-    options.floatWidth,
-    options.floatHeight,
-    floatBreakpointsKey,
+    options.forceAspectRatio,
+    options.floatSize,
     itemAspectRatiosKey,
   ])
 }

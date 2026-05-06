@@ -48,9 +48,7 @@ Wraps the grid, computes layout, and provides context to children.
 | `maxVisible`         | `number`                                  | -           | Max visible in others area                                           |
 | `currentVisiblePage` | `number`                                  | `0`         | Current page for visible items (when maxVisible > 0)                 |
 | `itemAspectRatios`   | `(ItemAspectRatio \| undefined)[]`        | -           | Per-item aspect ratios                                               |
-| `floatWidth`         | `number`                                  | -           | Width of the auto-float PiP (2-person mode). Overrides breakpoints.  |
-| `floatHeight`        | `number`                                  | -           | Height of the auto-float PiP (2-person mode). Overrides breakpoints. |
-| `floatBreakpoints`   | `PipBreakpoint[]`                         | -           | Responsive breakpoints for auto-float PiP (see [Responsive PiP](#responsive-pip)) |
+| `floatSize`          | `FloatSize`                               | `'medium'`  | Responsive size for auto-float PiP: `'small' \| 'medium' \| 'large'` |
 | `pipIndex`           | `number`                                  | `1`         | Which participant (0 or 1) is the floating PiP in 2-person mode    |
 | `pinOnly`            | `boolean`                                 | `false`     | Mobile/tablet pin-only mode: page 0 = pinned full-screen, page 1+ = others gallery (≤1024px) |
 | `disableFloat`       | `boolean`                                 | `false`     | Disable Floating PiP in 2-person mode; shows standard gallery grid instead |
@@ -78,9 +76,8 @@ Draggable Picture-in-Picture overlay with corner snapping.
 | Prop              | Type                                                          | Default                          | Description                                      |
 | ----------------- | ------------------------------------------------------------- | -------------------------------- | ------------------------------------------------ |
 | `children`        | `ReactNode`                                                   | required                         | Content to render inside the floating item       |
-| `width`           | `number`                                                      | `120`                            | Floating item width (px). Overridden by `breakpoints`. |
-| `height`          | `number`                                                      | `160`                            | Floating item height (px). Overridden by `breakpoints`. |
-| `breakpoints`     | `PipBreakpoint[]`                                             | -                                | Responsive breakpoints (see [Responsive PiP](#responsive-pip)) |
+| `size`            | `'small' \| 'medium' \| 'large'`                              | -                                | Responsive pre-defined sizes (see [Responsive PiP](#responsive-pip)) |
+| `aspectRatio`     | `string`                                                      | `'16:9'`                         | Aspect ratio of the floating PiP item            |
 | `initialPosition` | `{ x: number; y: number }`                                    | `{ x: 16, y: 16 }`              | Extra offset from anchor corner                  |
 | `anchor`          | `'top-left' \| 'top-right' \| 'bottom-left' \| 'bottom-right'` | `'bottom-right'`               | Which corner to snap/anchor the item             |
 | `visible`         | `boolean`                                                     | `true`                           | Whether the floating item is visible             |
@@ -104,25 +101,25 @@ Full-grid overlay for screen sharing, whiteboard, etc.
 
 ## Responsive PiP
 
-PiP auto-adjusts size based on container width via breakpoints:
+PiP auto-adjusts size based on container width via pre-defined sizes:
 
 ```tsx
-import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meeting-grid-layout-react'
+import { FloatingGridItem } from '@thangdevalone/meeting-grid-layout-react'
 
 // Standalone — auto-responsive
-<FloatingGridItem breakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
+<FloatingGridItem size="large">
   <VideoTile />
 </FloatingGridItem>
 
 // Auto-float in 2-person mode
-<GridContainer count={2} floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS}>
+<GridContainer count={2} floatSize="large">
   {participants.map((p, i) => (
     <GridItem key={p.id} index={i}><VideoTile participant={p} /></GridItem>
   ))}
 </GridContainer>
 ```
 
-> See the [main README](https://github.com/thangdevalone/meeting-grid-layout#floating-pip-picture-in-picture) for default breakpoint table, custom breakpoints, and `resolveFloatSize` utility.
+> See the [main README](https://github.com/thangdevalone/meeting-grid-layout#floating-pip-picture-in-picture) for full documentation on `floatSize`.
 
 ## Hooks
 
@@ -139,12 +136,11 @@ import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet
 | --------------------------- | ---------- | ------------------------------------------------ |
 | `createMeetGrid`            | function   | Create grid layout (Vanilla JS)                  |
 | `createGrid`                | function   | Low-level grid computation                       |
-| `resolveFloatSize`          | function   | Resolve PiP size for a given container width     |
-| `DEFAULT_FLOAT_BREAKPOINTS` | constant   | Ready-made 5-level responsive PiP breakpoints    |
+| `resolveFloatWidth`         | function   | Resolve PiP width for a given container width     |
 | `getSpringConfig`           | function   | Get spring config from preset name               |
 | `springPresets`             | object     | All spring presets                                |
 | `getAspectRatio`            | function   | Parse aspect ratio string                        |
-| `PipBreakpoint`             | type       | Breakpoint definition type                       |
+| `FloatSize`                 | type       | Float size enum (`'small'`, `'medium'`, `'large'`) |
 | `PaginationInfo`            | type       | Pagination info type                             |
 | `ContentDimensions`         | type       | Content dimensions with offset                   |
 

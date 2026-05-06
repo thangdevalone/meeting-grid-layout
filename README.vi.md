@@ -47,6 +47,7 @@
 | **Phân trang**             | Chia participant qua nhiều trang                       |
 | **Giới hạn hiển thị "+N"** | Giới hạn số item và hiển thị chỉ báo overflow          |
 | **Tỉ lệ linh hoạt**        | Tỉ lệ riêng cho từng item (phone 9:16, desktop 16:9)   |
+| **Ép cứng tỉ lệ (Force)**  | Ép các ô grid luôn duy trì chính xác tỉ lệ khung hình  |
 | **Floating PiP**           | Picture-in-Picture kéo thả, snap vào góc               |
 | **Chế độ Pin Only**        | View pin mobile/tablet với phân trang riêng biệt      |
 | **Grid Overlay**           | Overlay toàn grid cho screen sharing, whiteboard, v.v. |
@@ -287,6 +288,19 @@ const itemAspectRatios = [
 | `"auto"`    | Co giãn lấp đầy cell (mặc định khi không chỉ định) |
 | `undefined` | Sử dụng global `aspectRatio`                       |
 
+### Ép cứng tỉ lệ (Force Aspect Ratio)
+
+Theo mặc định, các `GridItem` wrapper sẽ co giãn để lấp đầy các ô grid cell nhiều nhất có thể, và bạn cần dùng `contentDimensions` để tự set kích thước cho các thẻ video bên trong.
+Nếu bạn muốn bản thân các thẻ wrapper `GridItem` luôn giữ đúng tỉ lệ (ví dụ: dùng cho việc set border, background, hay layout thuần CSS), hãy thêm `forceAspectRatio={true}` vào `GridContainer`.
+Tính năng này sẽ ép các GridItem wrapper co lại theo đúng kích thước aspect ratio và tự động căn giữa chúng bên trong grid cell. (Lưu ý: Đối với Floating PiP, kích thước luôn được ép theo aspect ratio một cách tự động).
+
+```tsx
+<GridContainer
+  forceAspectRatio={true}
+  aspectRatio="16:9"
+>
+```
+
 ### Thuật toán Gallery linh hoạt
 
 Khi các participant có **tỉ lệ khác nhau** (ví dụ: điện thoại 9:16, máy tính 16:9), grid sử dụng thuật toán **Tìm kiếm hàng tối ưu theo diện tích** để tìm bố cục tận dụng không gian tốt nhất mà vẫn giữ đúng tỉ lệ.
@@ -453,28 +467,20 @@ import { FloatingGridItem, DEFAULT_FLOAT_BREAKPOINTS } from '@thangdevalone/meet
 </GridContainer>
 ```
 
-### Breakpoints mặc định
+### Kích thước cấu hình sẵn (Pre-defined Sizes)
 
-| Chiều rộng container | Kích thước PiP |
-| -------------------- | -------------- |
-| 0 – 479px            | 100 × 135      |
-| 480 – 767px          | 130 × 175      |
-| 768 – 1023px         | 160 × 215      |
-| 1024 – 1439px        | 180 × 240      |
-| 1440px+              | 220 × 295      |
+Thay vì phải tự định nghĩa breakpoints phức tạp, bạn có thể dễ dàng thiết lập kích thước responsive cho PiP bằng cách sử dụng `floatSize` / `size`:
 
-Tự định nghĩa breakpoints với `PipBreakpoint[]`:
+| `floatSize` | Mô tả |
+| ----------- | ----------- |
+| `'small'`   | PiP nhỏ gọn (80px trên mobile → 160px trên desktop) |
+| `'medium'`  | PiP tiêu chuẩn (110px trên mobile → 210px trên desktop) **(Mặc định)** |
+| `'large'`   | PiP cỡ lớn (140px trên mobile → 260px trên desktop) |
 
 ```tsx
-const myBreakpoints: PipBreakpoint[] = [
-  { minWidth: 0, width: 80, height: 110 },
-  { minWidth: 600, width: 150, height: 200 },
-  { minWidth: 1200, width: 250, height: 330 },
-]
-
-<FloatingGridItem breakpoints={myBreakpoints}>...</FloatingGridItem>
+<FloatingGridItem size="large">...</FloatingGridItem>
 // hoặc
-<GridContainer count={2} floatBreakpoints={myBreakpoints}>...</GridContainer>
+<GridContainer count={2} floatSize="large">...</GridContainer>
 ```
 
 > **Lưu ý:** Props `width`/`height` cố định ghi đè breakpoints. Hệ thống chọn breakpoint có `minWidth` lớn nhất mà ≤ chiều rộng container.

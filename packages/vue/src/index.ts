@@ -29,6 +29,7 @@ export type {
     SpringPreset,
     ItemAspectRatio,
     ContentDimensions,
+    FloatSize,
 } from '@thangdevalone/meeting-grid-layout-core'
 
 export {
@@ -39,4 +40,5 @@ export {
     getSpringConfig,
     springPresets,
     getAspectRatio,
+    resolveFloatWidth,
 } from '@thangdevalone/meeting-grid-layout-core'

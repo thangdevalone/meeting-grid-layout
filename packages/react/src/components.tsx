@@ -7,8 +7,9 @@ import {
   getSpringConfig,
   ItemAspectRatio,
   ContentDimensions,
-  PipBreakpoint,
-  resolveFloatSize,
+  FloatSize,
+  resolveFloatWidth,
+  getAspectRatio,
 } from '@thangdevalone/meeting-grid-layout-core'
 import { useGridDimensions, useMeetGrid, GridContext, useGridContext } from './hooks'
 
@@ -55,22 +56,12 @@ export interface GridContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
    * @example ['16:9', '9:16', undefined]
    */
   itemAspectRatios?: (ItemAspectRatio | undefined)[]
-  /** Custom width for the floating PiP item in 2-person mode */
-  floatWidth?: number
-  /** Custom height for the floating PiP item in 2-person mode */
-  floatHeight?: number
   /**
-   * Responsive breakpoints for the floating PiP in 2-person mode.
-   * When provided, PiP size auto-adjusts based on container width.
-   * Use `DEFAULT_FLOAT_BREAKPOINTS` for a ready-made 5-level responsive config.
-   * @example
-   * floatBreakpoints={DEFAULT_FLOAT_BREAKPOINTS}
-   * floatBreakpoints={[
-   *   { minWidth: 0, width: 80, height: 110 },
-   *   { minWidth: 600, width: 150, height: 200 },
-   * ]}
+   * Pre-defined responsive size for the floating PiP window.
+   * 'small', 'medium', or 'large'. The actual size automatically scales based on the container size.
+   * @default 'medium'
    */
-  floatBreakpoints?: PipBreakpoint[]
+  floatSize?: FloatSize
   /**
    * Index of the participant to show as the floating PiP in 2-person mode.
    * The other participant will fill the main area.
@@ -99,6 +90,11 @@ export interface GridContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
    * @default false
    */
   disableAnimation?: boolean
+  /**
+   * If true, forces the GridItem wrappers to maintain their aspect ratio exactly.
+   * @default false
+   */
+  forceAspectRatio?: boolean
 }
 
 /**
@@ -122,13 +118,12 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     maxVisible,
     currentVisiblePage,
     itemAspectRatios,
-    floatWidth,
-    floatHeight,
-    floatBreakpoints,
+    floatSize,
     pipIndex,
     pinOnly,
     disableFloat,
     disableAnimation = false,
+    forceAspectRatio = false,
 
     ...props
   },
@@ -154,12 +149,11 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
     maxVisible,
     currentVisiblePage,
     itemAspectRatios,
-    floatWidth,
-    floatHeight,
-    floatBreakpoints,
+    floatSize,
     pipIndex,
     pinOnly,
     disableFloat,
+    forceAspectRatio,
   }
 
   const grid = useMeetGrid(gridOptions)
@@ -173,7 +167,7 @@ export const GridContainer = forwardRef<HTMLDivElement, GridContainerProps>(func
   }
 
   return (
-    <GridContext.Provider value={{ dimensions, grid, springPreset, disableAnimation }}>
+    <GridContext.Provider value={{ dimensions, grid, springPreset, disableAnimation, forceAspectRatio }}>
       <div ref={ref} style={containerStyle} className={className} {...props}>
         {children}
       </div>
@@ -262,7 +256,7 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
   },
   ref
 ) {
-  const { grid, springPreset, dimensions: containerDimensions, disableAnimation: containerDisableAnimation } = useGridContext()
+  const { grid, springPreset, dimensions: containerDimensions, disableAnimation: containerDisableAnimation, forceAspectRatio } = useGridContext()
 
   // Merge container-level and item-level disableAnimation
   const noAnimation = containerDisableAnimation || disableAnimation
@@ -274,12 +268,27 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
   const isMain = grid ? grid.isMainItem(index) : false
   const isHidden =
     !grid || !isVisible || (grid.layoutMode === 'spotlight' && !isMain)
+    
+  const shouldForceRatio = forceAspectRatio || isFloat
 
-  const position = grid && !isHidden ? grid.getPosition(index) : { top: 0, left: 0 }
-  const itemDims = grid && !isHidden ? grid.getItemDimensions(index) : { width: 0, height: 0 }
+  const rawPosition = grid && !isHidden ? grid.getPosition(index) : { top: 0, left: 0 }
+  const rawItemDims = grid && !isHidden ? grid.getItemDimensions(index) : { width: 0, height: 0 }
+  const rawContentDims = grid && !isHidden ? grid.getItemContentDimensions(index, itemAspectRatio) : { width: 0, height: 0, offsetTop: 0, offsetLeft: 0 }
+
+  const position = (shouldForceRatio && !isFloat)
+    ? { top: rawPosition.top + rawContentDims.offsetTop, left: rawPosition.left + rawContentDims.offsetLeft }
+    : rawPosition
+
+  const itemDims = (shouldForceRatio && !isFloat)
+    ? { width: rawContentDims.width, height: rawContentDims.height }
+    : rawItemDims
+
+  const contentDimensions = shouldForceRatio
+    ? { ...rawContentDims, offsetTop: 0, offsetLeft: 0 }
+    : rawContentDims
 
   // Float mode state
-  const floatDims = grid?.floatDimensions ?? { width: 120, height: 160 }
+  const floatDims = { width: rawContentDims.width, height: rawContentDims.height }
   const [floatAnchor, setFloatAnchor] = React.useState<
     'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
   >('bottom-right')
@@ -425,8 +434,6 @@ export const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridI
   if (isHidden) {
     return null
   }
-
-  const contentDimensions = grid!.getItemContentDimensions(index, itemAspectRatio)
 
   const transition: Transition = customTransition ?? {
     type: springConfig.type,
@@ -578,28 +585,14 @@ export interface FloatingGridItemProps extends Omit<
 > {
   /** Children to render inside the floating item */
   children: ReactNode
-  /** Width of the floating item (px). Overridden by `breakpoints` when provided. */
-  width?: number
-  /** Height of the floating item (px). Overridden by `breakpoints` when provided. */
-  height?: number
   /**
-   * Responsive breakpoints for PiP sizing.
-   * When provided, width/height auto-adjust based on container width.
-   * Overrides the fixed `width`/`height` props.
-   * Use `DEFAULT_FLOAT_BREAKPOINTS` for a ready-made 5-level responsive config.
-   *
-   * @example
-   * // Use default responsive breakpoints
-   * breakpoints={DEFAULT_FLOAT_BREAKPOINTS}
-   *
-   * // Custom breakpoints
-   * breakpoints={[
-   *   { minWidth: 0, width: 80, height: 110 },
-   *   { minWidth: 600, width: 150, height: 200 },
-   *   { minWidth: 1200, width: 250, height: 330 },
-   * ]}
+   * Pre-defined responsive size for the floating item.
+   * 'small', 'medium', or 'large'. The actual size automatically scales based on the container size.
+   * @default 'medium'
    */
-  breakpoints?: PipBreakpoint[]
+  size?: 'small' | 'medium' | 'large'
+  /** Aspect ratio of the floating PiP item, defaults to '16:9' */
+  aspectRatio?: string
   /** Initial position (x, y from container edges) */
   initialPosition?: { x: number; y: number }
   /** Which corner to anchor: 'top-left', 'top-right', 'bottom-left', 'bottom-right' */
@@ -631,9 +624,8 @@ export const FloatingGridItem = forwardRef<HTMLDivElement, FloatingGridItemProps
   function FloatingGridItem(
     {
       children,
-      width = 120,
-      height = 160,
-      breakpoints,
+      size = 'medium',
+      aspectRatio = '16:9',
       initialPosition = { x: 16, y: 16 },
       anchor: initialAnchor = 'bottom-right',
       visible = true,
@@ -651,16 +643,14 @@ export const FloatingGridItem = forwardRef<HTMLDivElement, FloatingGridItemProps
     const { dimensions, disableAnimation: containerDisableAnimation } = useGridContext()
     const [currentAnchor, setCurrentAnchor] = React.useState(initialAnchor)
 
-    // Resolve responsive size from breakpoints (if provided), otherwise use fixed width/height
-    const resolvedSize = React.useMemo(() => {
-      if (breakpoints && breakpoints.length > 0 && dimensions.width > 0) {
-        return resolveFloatSize(dimensions.width, breakpoints)
-      }
-      return null
-    }, [breakpoints, dimensions.width])
-
-    const effectiveWidth = resolvedSize?.width ?? width
-    const effectiveHeight = resolvedSize?.height ?? height
+    // Resolve responsive size ensuring constant area across aspect ratios
+    // This ensures 16:9, 9:16, 4:3, and 1:1 all feel visually balanced
+    const hwRatio = getAspectRatio(aspectRatio)
+    const baseSize = resolveFloatWidth(dimensions.width, size)
+    const baseArea = baseSize * baseSize
+    
+    const effectiveWidth = Math.sqrt(baseArea / hwRatio)
+    const effectiveHeight = Math.sqrt(baseArea * hwRatio)
 
     // Use motion values for direct control over position
     const x = useMotionValue(0)

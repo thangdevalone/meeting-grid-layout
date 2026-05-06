@@ -34,7 +34,7 @@ const LAYOUT_MODES: { value: LayoutMode; label: string }[] = [
   { value: 'spotlight', label: 'Spotlight' },
 ]
 
-const ASPECT_RATIOS = ['16:9', '4:3', '1:1']
+const ASPECT_RATIOS = ['16:9', '9:16', '4:3', '1:1']
 
 // Hook for swipe gesture
 function useSwipe(onSwipeLeft: () => void, onSwipeRight: () => void) {
@@ -87,6 +87,9 @@ export default function App() {
   const [pinOnly, setPinOnly] = useState(false)
   const [floatingPipEnabled, setFloatingPipEnabled] = useState(true)
   const [disableAnimation, setDisableAnimation] = useState(false)
+  const [forceAspectRatio, setForceAspectRatio] = useState(false)
+  const [floatSize, setFloatSize] = useState<'small' | 'medium' | 'large'>('medium')
+  const [pipAspectRatio, setPipAspectRatio] = useState('16:9')
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Responsive floating size
@@ -98,7 +101,7 @@ export default function App() {
     return () => mediaQuery.removeEventListener('change', handler)
   }, [])
 
-  const floatingSize = isMobile ? { width: 90, height: 120 } : { width: 130, height: 175 }
+
 
   // Flex mode: per-participant aspect ratios
   const RATIO_OPTIONS = ['16:9', '9:16', '4:3', '1:1'] as const
@@ -127,6 +130,13 @@ export default function App() {
   const itemAspectRatios = flexMode
     ? participants.map((p) => participantRatios[p.id] || '16:9')
     : undefined
+    
+  // Support custom PiP aspect ratio for floating items
+  const zoomItemAspectRatios = participants.map((_, i) => {
+    if (i === pinnedIndex) return 'auto'
+    if (i === floatingIndex) return pipAspectRatio
+    return '16:9'
+  })
 
   // Calculate pagination values
   const othersCount = participants.length - 1
@@ -327,6 +337,19 @@ export default function App() {
             </div>
           </div>
 
+          {/* Force Aspect Ratio toggle */}
+          <div className="control-group">
+            <span className="control-label">Force Ratio</span>
+            <div className="control-buttons">
+              <button
+                className={`btn ${forceAspectRatio ? 'active' : ''}`}
+                onClick={() => setForceAspectRatio(!forceAspectRatio)}
+              >
+                {forceAspectRatio ? 'On' : 'Off'}
+              </button>
+            </div>
+          </div>
+
           {/* Gap control */}
           <div className="control-group">
             <span className="control-label">Gap</span>
@@ -521,6 +544,40 @@ export default function App() {
             </div>
           )}
 
+          {/* Float Size & Aspect Ratio (for floating PiPs) */}
+          {(zoomMode || (layoutMode === 'gallery' && participants.length === 2 && floatingPipEnabled)) && (
+            <>
+              <div className="control-group">
+                <span className="control-label">PiP Size</span>
+                <div className="control-buttons">
+                  {(['small', 'medium', 'large'] as const).map((size) => (
+                    <button
+                      key={size}
+                      className={`btn ${floatSize === size ? 'active' : ''}`}
+                      onClick={() => setFloatSize(size)}
+                    >
+                      {size.charAt(0).toUpperCase() + size.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="control-group">
+                <span className="control-label">PiP Ratio</span>
+                <div className="control-buttons">
+                  {ASPECT_RATIOS.map((ratio) => (
+                    <button
+                      key={ratio}
+                      className={`btn ${pipAspectRatio === ratio ? 'active' : ''}`}
+                      onClick={() => setPipAspectRatio(ratio)}
+                    >
+                      {ratio}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
           {/* Disable Animation toggle */}
           <div className="control-group">
             <span className="control-label">Animation</span>
@@ -550,7 +607,9 @@ export default function App() {
             count={participants.length}
             springPreset="smooth"
             disableAnimation={disableAnimation}
-            itemAspectRatios={participants.map((_, i) => (i === pinnedIndex ? 'auto' : '16:9'))}
+            forceAspectRatio={forceAspectRatio}
+            floatSize={floatSize}
+            itemAspectRatios={zoomItemAspectRatios}
           >
             {/* Pinned participant fills the screen */}
             {participants.map((participant, index) => {
@@ -606,8 +665,8 @@ export default function App() {
             {floatingIndex !== pinnedIndex && participants[floatingIndex] && (
               <FloatingGridItem
                 key={`floating-${floatingIndex}`}
-                width={floatingSize.width}
-                height={floatingSize.height}
+                size={floatSize}
+                aspectRatio={pipAspectRatio}
                 anchor="bottom-right"
                 initialPosition={{ x: 12, y: 12 }}
                 borderRadius={isMobile ? 10 : 12}
@@ -682,7 +741,7 @@ export default function App() {
             othersPosition={othersPosition}
             count={participants.length}
             springPreset="smooth"
-            itemAspectRatios={itemAspectRatios}
+
             maxItemsPerPage={
               paginationEnabled && !isGalleryWithPin && layoutMode === 'gallery' ? itemsPerPage : 0
             }
@@ -699,6 +758,13 @@ export default function App() {
             pinOnly={pinOnly}
             disableFloat={!floatingPipEnabled}
             disableAnimation={disableAnimation}
+            forceAspectRatio={forceAspectRatio}
+            floatSize={floatSize}
+            itemAspectRatios={
+              layoutMode === 'gallery' && participants.length === 2 && floatingPipEnabled
+                ? participants.map((_, i) => (i === pipIndex ? pipAspectRatio : 'auto'))
+                : itemAspectRatios
+            }
           >
             {participants.map((participant, index) => (
               <GridItem key={participant.id} index={index}>

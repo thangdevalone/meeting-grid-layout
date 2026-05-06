@@ -8,3 +8,4 @@ export default defineConfig({
         allowedHosts: ["fe-2.modern-ui.org", "fe-vite.modern-ui.org"]
     },
 })
+// force restart
